@@ -14,7 +14,7 @@ Y_train = dataset[:int(len(dataset)*splitratio), 8]
 Y_val = dataset[int(len(dataset)*splitratio):, 8]
 print(X_train)
 print(Y_train)
-k_value = 5
+k_value = 80
 
 
 def distance(one, two):
@@ -22,26 +22,18 @@ def distance(one, two):
 
 
 def shortest_distance(x, x_rest, y_rest):
-    shortest = distance(x, x_rest[0])
     num_list_final = []
     num_list_return = []
     for i in range(len(x_rest)):
-        if distance(x, x_rest[i]) <= shortest:
-            num_list_final.append((distance(x, x_rest[i]), x_rest[i], y_rest[i]))
+        num_list_final.append((distance(x, x_rest[i]), x_rest[i], y_rest[i]))
     num_list_final.sort()
+
+    # fjernet iffen som sjekker om ny distance av lavere,
+    # og appender alle avstander slik at listene appendes med samme funksjon under!
 
     if len(num_list_final) >= k_value:
         for k in range(k_value):
             num_list_return.append(num_list_final[k])
-
-    elif len(num_list_final) < k_value:
-        intt = k_value - len(num_list_final)
-        print("intt: ", intt, ", len: ", len(num_list_final))
-        for u in range(len(num_list_final)):
-            num_list_return.append(num_list_final[u])
-
-        for w in range(intt-1):
-            num_list_return.append(num_list_final[w])
 
     varr = 0
     for f in range(len(num_list_return)):
@@ -52,9 +44,7 @@ def shortest_distance(x, x_rest, y_rest):
     else:
         predicted = 0.0
 
-
     return predicted, num_list_return
-
 
 
 TP = 0
@@ -67,7 +57,7 @@ for i in range(len(X_val)):
     y = Y_val[i]
     pred, shortest = shortest_distance(x, X_train, Y_train)
     print("Y:", pred, "Y hat", y)
-          # "Distance:", shortest)
+          #, "Distance:", shortest)
 
     if y == 1 and pred == 1:
         TP += 1
