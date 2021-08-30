@@ -3,7 +3,7 @@ import numpy
 numpy.random.seed(7)
 
 # load pima indians dataset
-dataset = numpy.loadtxt("pima-indians-diabetes.data.csv", delimiter=",")
+dataset = numpy.loadtxt("/Users/alex/Library/Mobile Documents/com~apple~CloudDocs/UiA/IKT450 - DNN/Assignments/Assignment_1/pima-indians-diabetes_data.csv", delimiter=",")
 numpy.random.shuffle(dataset)
 splitratio = 0.8
 
@@ -14,8 +14,10 @@ Y_train = dataset[:int(len(dataset)*splitratio), 8]
 Y_val = dataset[int(len(dataset)*splitratio):, 8]
 print(X_train)
 print(Y_train)
-k_value = 80
 
+# Choose k-value here: _____________________________________
+k_value = 80
+#___________________________________________________________
 
 def distance(one, two):
     return numpy.linalg.norm(one - two)
@@ -71,6 +73,7 @@ for i in range(len(X_val)):
     if y == 0 and pred == 1:
         FP += 1
 
+print("k-value", k_value)
 print("Accuracy:", (TP+TN)/(TP+TN+FP+FN))
 print("Recall", TP/(TP+FN))
 print("Precision", TP/(TP+FP))
