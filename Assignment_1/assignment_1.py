@@ -2,32 +2,48 @@ import numpy
 # fix random seed for reproducibility
 numpy.random.seed(7)
 
+
 # load pima indians dataset
 dataset = numpy.loadtxt("/Users/alex/Library/Mobile Documents/com~apple~CloudDocs/UiA/IKT450 - DNN/Assignments/Assignment_1/pima-indians-diabetes_data.csv", delimiter=",")
 numpy.random.shuffle(dataset)
 splitratio = 0.8
+# print(dataset[0:3, 8])
 
 # split into input (X) and output (Y) variables
-X_train = dataset[:int(len(dataset)*splitratio), 0:8]
+X_train = dataset[ :int(len(dataset)*splitratio), 0:8]
+#                [0:80%, 0:8]
+
 X_val = dataset[int(len(dataset)*splitratio):, 0:8]
+#                [80%:, 0:8]
+
 Y_train = dataset[:int(len(dataset)*splitratio), 8]
+#                [0:80%, 8]
+
 Y_val = dataset[int(len(dataset)*splitratio):, 8]
-print(X_train)
-print(Y_train)
+#                [20%:, 8]
+# print(X_train)
+# print(Y_train)
+# x = X_val[:1, 0:8]
+# y = X_train[1:2, 0:8]
+# print("X: ", x,", x_train: ", y)
+# print("result: ", x-y)
+# print("ress: ", numpy.linalg.norm(x-y))
+
+
 
 # Choose k-value here: _____________________________________
-k_value = 80
+k_value = 30
 #___________________________________________________________
 
 def distance(one, two):
     return numpy.linalg.norm(one - two)
 
 
-def shortest_distance(x, x_rest, y_rest):
+def shortest_distance(x, x_train, y_train):
     num_list_final = []
     num_list_return = []
-    for i in range(len(x_rest)):
-        num_list_final.append((distance(x, x_rest[i]), x_rest[i], y_rest[i]))
+    for i in range(len(x_train)):
+        num_list_final.append((distance(x, x_train[i]), x_train[i], y_train[i]))
     num_list_final.sort()
 
     # fjernet iffen som sjekker om ny distance av lavere,
@@ -46,7 +62,7 @@ def shortest_distance(x, x_rest, y_rest):
     else:
         predicted = 0.0
 
-    return predicted, num_list_return
+    return predicted
 
 
 TP = 0
@@ -55,11 +71,11 @@ FP = 0
 FN = 0
 
 for i in range(len(X_val)):
-    x = X_val[i]
+    # x = 
     y = Y_val[i]
-    pred, shortest = shortest_distance(x, X_train, Y_train)
-    print("Y:", pred, "Y hat", y)
-          #, "Distance:", shortest)
+    pred = shortest_distance(X_val[i], X_train, Y_train)
+    print("Y:", pred, "Y-hat", y)
+    # , "Distance:", shortest)
 
     if y == 1 and pred == 1:
         TP += 1
