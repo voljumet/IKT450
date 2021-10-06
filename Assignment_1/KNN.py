@@ -2,8 +2,9 @@ import numpy
 # fix random seed for reproducibility
 numpy.random.seed(7)
 
+
 # load pima indians dataset
-dataset = numpy.loadtxt("pima-indians-diabetes.data.csv", delimiter=",")
+dataset = numpy.loadtxt("/Users/alex/Library/Mobile Documents/com~apple~CloudDocs/UiA/IKT450 - DNN/Assignments/Assignment_1/pima-indians-diabetes_data.csv", delimiter=",")
 numpy.random.shuffle(dataset)
 splitratio = 0.8
 
