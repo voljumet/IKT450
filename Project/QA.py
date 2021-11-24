@@ -1,24 +1,19 @@
 import glob
 import json
 from random import random
-
+import re
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from nltk.corpus import stopwords
-
+from nltk.stem import WordNetLemmatizer
 from cuda_check import check_if_cuda
 
-# test = get_dataset_split_names('natural_questions')
-# YesNoAnswer = dataset[0]['annotations']['yes_no_answer']
-# Question = dataset[0]['question']
-# AnswerasTokens = dataset[0]['document']['tokens']['token']
 from datasets import list_datasets, load_dataset, list_metrics, load_metric, get_dataset_config_names, get_dataset_split_names
 # check_if_cuda()
 
-''' dev function to simply load from local file '''
 
 def short_answers_make(input):
     array = []
@@ -26,25 +21,24 @@ def short_answers_make(input):
         array.append(each[0])
     return array
 
+
 def json_reader(path):
+    dataset = []
     for file in glob.glob(path, recursive=True):
         with open(file) as json_file:
             dataset.append(json.load(json_file))
+    return dataset
 
 
+''' Code running on a machine with enough diskspace available? requires ~120GB '''
 local = True
 
 if local:
-    dataset = []
-
-    json_reader('Data/mydata*.json')
+    dataset = json_reader('Data/mydata*.json')
 else:
     dataset = load_dataset('natural_questions', split='train')
+''' -------------------------------------------------------------------------- '''
 
-''' --------------------------------'''
-questions = []
-short_answers = []
-long_answer = []
 
 def filter_html(data):
     long_answer_temp = []
@@ -53,18 +47,21 @@ def filter_html(data):
             long_answer_temp.append(data['token'][i])
     return long_answer_temp
 
-def load_data():
+
+def load_data(dataset):
+    questions, short_answers, long_answer = [], [], []
     for each in dataset:
-        if ((each["annotations"]["yes_no_answer"]) != [-1]):
-            if local:
+        if local:
+            if ((each[1]) != [-1]):
                 questions.append(each[0])
                 short_answers.append(each[1])
                 long_answer.append(filter_html(each[2]))
-            else:
+        else:
+            if ((each["annotations"]["yes_no_answer"]) != [-1]):
                 questions.append(each['question']['tokens'])
                 short_answers.append(each['annotations']['yes_no_answer'])
                 long_answer.append(filter_html(each['document']['tokens']))
-
+    return questions, short_answers, long_answer
 
 # def new(data):
 #     save_data = []
@@ -81,29 +78,37 @@ def load_data():
 #
 # print("Done filtering")
 
+
+questions, short_answers, long_answer = load_data(dataset)
+
 # fix short answer array
 short_answers = short_answers_make(short_answers)
 
 
 print("Data read!")
 stopwords = stopwords.words('english')
+lm = WordNetLemmatizer()
 
 
-def remove_stopwords(all_questions):
+def nat_lang_proc(all_questions):
     removed_stopwords = []
     all_words = []
     for each_question in all_questions:
         for each_word in each_question:
+            # each_question[each_question.index(each_word)] = re.sub(r"[^a-zA-Z0-9]","", each_word) # DOES NOT WORK!!!
             if each_word.lower() in stopwords:
                 each_question.remove(each_word)
-
-            all_words.append(each_word.lower())
+            else:
+                each_question[each_question.index(each_word)] = lm.lemmatize(each_word.lower())
+                all_words.append(each_word.lower())
         removed_stopwords.append(each_question)
     return removed_stopwords, all_words
 
 
+print("Removing stopwords ...")
+x_train_temp, all_words = nat_lang_proc(questions)
+print("Stopwords removed ...")
 
-x_train_temp, all_words = remove_stopwords(questions)
 categories = list(set(short_answers))
 y_train = []
 for n in [categories.index(i) for i in short_answers]:
@@ -128,12 +133,20 @@ def makeTextIntoNumbers(text):
 
     return list(numbers[:max_words])
 
+
 for each in x_train_temp:
     x_train.append(makeTextIntoNumbers(each))
 
-
 x_train = torch.LongTensor(x_train)
 y_train = torch.Tensor(y_train)
+
+if torch.cuda.is_available():
+    print("Running on CUDA ...")
+    x_train = x_train.to(torch.device("cuda"))
+    y_train = y_train.to(torch.device("cuda"))
+else:
+    print("Running on CPU ...")
+
 
 class Net(nn.Module):
     def __init__(self):
