@@ -53,15 +53,33 @@ def filter_html(data):
             long_answer_temp.append(data['token'][i])
     return long_answer_temp
 
-for each in dataset:
-    if local:
-        questions.append(each[0])
-        short_answers.append(each[1])
-        long_answer.append(filter_html(each[2]))
-    else:
-        questions.append(each['question']['tokens'])
-        short_answers.append(each['annotations']['yes_no_answer'])
-        long_answer.append(filter_html(each['document']['tokens']))
+def load_data():
+    for each in dataset:
+        if ((each["annotations"]["yes_no_answer"]) != [-1]):
+            if local:
+                questions.append(each[0])
+                short_answers.append(each[1])
+                long_answer.append(filter_html(each[2]))
+            else:
+                questions.append(each['question']['tokens'])
+                short_answers.append(each['annotations']['yes_no_answer'])
+                long_answer.append(filter_html(each['document']['tokens']))
+
+
+# def new(data):
+#     save_data = []
+#     save_data.append(data["question"]["tokens"])
+#     save_data.append(data["annotations"]["yes_no_answer"])
+#     save_data.append(data["document"]["tokens"])
+#     return save_data
+#
+# def json_write(data):
+#     for i, each in enumerate(data):
+#         if((data[i]["annotations"]["yes_no_answer"]) != [-1]):
+#             with open('Data/mydata'+str(i)+'.json', 'w') as f:
+#                 json.dump(new(data[i]), f)
+#
+# print("Done filtering")
 
 # fix short answer array
 short_answers = short_answers_make(short_answers)
