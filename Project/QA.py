@@ -71,18 +71,20 @@ print("Data read!")
 
 
 stopwords = stopwords.words('english')
-def remove_stopwords(dataset):
-    return dataset.apply(lambda stop_word: ' '.join([word for word in stop_word.lower() if word not in stopwords]))
 
 
-# remove_stopwords on data
-for each_question in questions:
-    for each_word in each_question:
-        if each_word.lower() not in stopwords:
-            pass
+def remove_stopwords(all_questions):
+    removed_stopwords = []
+    for each_question in all_questions:
+        for each_word in each_question:
+            if each_word.lower() in stopwords:
+                each_question.remove(each_word)
+        removed_stopwords.append(each_question)
+    return removed_stopwords
 
 
 x_train_temp = remove_stopwords(questions)
+
 
 categories = list(set(short_answers))
 
