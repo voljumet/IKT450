@@ -11,11 +11,12 @@ from nltk.corpus import stopwords
 
 from cuda_check import check_if_cuda
 
+from nltk.stem import WordNetLemmatizer
 # test = get_dataset_split_names('natural_questions')
 # YesNoAnswer = dataset[0]['annotations']['yes_no_answer']
 # Question = dataset[0]['question']
 # AnswerasTokens = dataset[0]['document']['tokens']['token']
-from datasets import list_datasets, load_dataset, list_metrics, load_metric, get_dataset_config_names, get_dataset_split_names
+# from datasets import list_datasets, load_dataset, list_metrics, load_metric, get_dataset_config_names, get_dataset_split_names
 # check_if_cuda()
 
 ''' dev function to simply load from local file '''
@@ -39,7 +40,8 @@ if local:
 
     json_reader('Data/mydata*.json')
 else:
-    dataset = load_dataset('natural_questions', split='train')
+    pass
+    # dataset = load_dataset('natural_questions', split='train')
 
 ''' --------------------------------'''
 questions = []
@@ -88,7 +90,7 @@ short_answers = short_answers_make(short_answers)
 print("Data read!")
 stopwords = stopwords.words('english')
 
-
+lm = WordNetLemmatizer()
 def remove_stopwords(all_questions):
     removed_stopwords = []
     all_words = []
@@ -96,10 +98,11 @@ def remove_stopwords(all_questions):
         for each_word in each_question:
             if each_word.lower() in stopwords:
                 each_question.remove(each_word)
-
+            lm.lemmatize(each_word)
             all_words.append(each_word.lower())
         removed_stopwords.append(each_question)
     return removed_stopwords, all_words
+    
 
 
 
@@ -229,3 +232,5 @@ while s:
     text = getRandomTextFromIndex(category)
     print("Chatbot:" + text)
     s = input("Human:")
+
+
