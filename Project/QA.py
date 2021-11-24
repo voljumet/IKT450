@@ -103,8 +103,7 @@ def remove_stopwords(all_questions):
         removed_stopwords.append(each_question)
     return removed_stopwords, all_words
     
-
-
+    
 
 x_train_temp, all_words = remove_stopwords(questions)
 categories = list(set(short_answers))
