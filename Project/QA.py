@@ -15,12 +15,16 @@ from cuda_check import check_if_cuda
 # YesNoAnswer = dataset[0]['annotations']['yes_no_answer']
 # Question = dataset[0]['question']
 # AnswerasTokens = dataset[0]['document']['tokens']['token']
-
+from datasets import list_datasets, load_dataset, list_metrics, load_metric, get_dataset_config_names, get_dataset_split_names
 # check_if_cuda()
 
 ''' dev function to simply load from local file '''
 
-
+def short_answers_make(input):
+    array = []
+    for each in input:
+        array.append(each[0])
+    return array
 
 def json_reader(path):
     for file in glob.glob(path, recursive=True):
@@ -28,9 +32,14 @@ def json_reader(path):
             dataset.append(json.load(json_file))
 
 
-dataset = []
+local = True
 
-json_reader('Data/mydata*.json')
+if local:
+    dataset = []
+
+    json_reader('Data/mydata*.json')
+else:
+    dataset = load_dataset('natural_questions', split='train')
 
 ''' --------------------------------'''
 questions = []
@@ -39,73 +48,59 @@ long_answer = []
 
 def filter_html(data):
     long_answer_temp = []
-    for i, each in enumerate(data[2]['is_html']):
+    for i, each in enumerate(data['is_html']):
         if each == 0:
-            long_answer_temp.append(data[2]['token'][i])
+            long_answer_temp.append(data['token'][i])
     return long_answer_temp
 
 for each in dataset:
-    questions.append(each[0])
-    short_answers.append(each[1])
-    long_answer.append(filter_html(each))
+    if local:
+        questions.append(each[0])
+        short_answers.append(each[1])
+        long_answer.append(filter_html(each[2]))
+    else:
+        questions.append(each['question']['tokens'])
+        short_answers.append(each['annotations']['yes_no_answer'])
+        long_answer.append(filter_html(each['document']['tokens']))
 
-    # for server:
-    # questions.append(dataset['question']['tokens'])
-    # short_answers.append(dataset['annotations']['yes_no_answer'])
-    # long_answer_temp.append(dataset['document']['tokens'])
-
-
-
-# remove all but short answer data
-
-
-# uses 'is_html' to filer out html from the long answer
-
-# for i, each in enumerate(long_answer_temp[0]['is_html']):
-#     if each == 0:
-#         long_answer.append(long_answer_temp[0]['token'][i])
+# fix short answer array
+short_answers = short_answers_make(short_answers)
 
 
 print("Data read!")
-
-
-
 stopwords = stopwords.words('english')
 
 
 def remove_stopwords(all_questions):
     removed_stopwords = []
+    all_words = []
     for each_question in all_questions:
         for each_word in each_question:
             if each_word.lower() in stopwords:
                 each_question.remove(each_word)
+
+            all_words.append(each_word.lower())
         removed_stopwords.append(each_question)
-    return removed_stopwords
+    return removed_stopwords, all_words
 
 
-x_train_temp = remove_stopwords(questions)
 
-
+x_train_temp, all_words = remove_stopwords(questions)
 categories = list(set(short_answers))
+y_train = []
+for n in [categories.index(i) for i in short_answers]:
+    y_train.append([0 for i in range(len(categories))])
+    y_train[-1][n] = 1
 
-# does not need to be sorted if yes_no_answer is already 1 and 0
-# y_train_org = np.array([categories.index(i) for i in y_train_temp_question])
-
-allwords = ' '.join(x_train_temp).lower().split(' ')
-unique_words = list(set(allwords))
-
-
-y_train = short_answers
-
+unique_words = list(set(all_words))
 x_train = []
 
 # take "max_words" amount of words and put it in an array as a number pointing to the words index in the "uniquewords" array
-max_words = 30
+max_words = 11
 
 def makeTextIntoNumbers(text):
-    iwords = text.lower().split(' ')
     numbers = np.zeros(max_words, dtype=int)
-    for count, each_word in enumerate(iwords):
+    for count, each_word in enumerate(text):
         if count == max_words:
             break
         try:
@@ -115,22 +110,26 @@ def makeTextIntoNumbers(text):
 
     return list(numbers[:max_words])
 
+for each in x_train_temp:
+    x_train.append(makeTextIntoNumbers(each))
+
+
 x_train = torch.LongTensor(x_train)
 y_train = torch.Tensor(y_train)
 
 class Net(nn.Module):
     def __init__(self):
-        super(nn, self).__init__()
+        super(Net, self).__init__()
         self.embedding = nn.Embedding(len(unique_words), 20)
 
         self.lstm = nn.LSTM(input_size=20,
-                            hidden_size=10,
+                            hidden_size=16,
                             num_layers=1,
                             batch_first=True,
                             bidirectional=False)
 
-        self.fc1 = nn.Linear(10, 128)
-        self.fc2 = nn.Linear(128, 2)
+        self.fc1 = nn.Linear(16, 256)
+        self.fc2 = nn.Linear(256, 2)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
@@ -145,7 +144,7 @@ class Net(nn.Module):
 
         return X
 
-max_words = 6
+
 batch_size = 1
 epochs = 5
 
@@ -155,19 +154,39 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(nene.parameters(), lr=0.001)
 loss_fn = torch.nn.MSELoss()
 
+train_loss = []
+validate_loss = []
+
+train_loss_acc = []
+validate_acc = []
 
 def avg(l):
     return sum(l)/len(l)
 
-n_steps = 3000
-for i in range(n_steps):
-    y_pred_train = nene(x_train)
-    loss_train = loss_fn(y_pred_train, y_train)
-    optimizer.zero_grad()
-    loss_train.backward()
-    optimizer.step()
-    if (i % 25) == 0:
-        print(loss_train.detach().numpy())
+n_steps = 30000
+
+def training_from_file(bool):
+    if bool:
+        nene.load_state_dict(torch.load(f"trained_steps:{n_steps}_maxwords:{max_words}_datasize:{len(x_train)}_V1.pth"))
+    else:
+        for i in range(n_steps):
+            y_pred_train = nene(x_train)
+            loss_train = loss_fn(y_pred_train, y_train)
+            optimizer.zero_grad()
+            loss_train.backward()
+            optimizer.step()
+            if (i % 250) == 0:
+                print("loss:", loss_train.detach().numpy(), "- step:", i)
+
+        torch.save(nene.state_dict(), "trained_n.pth")
+
+
+''' --------------------- TRAIN --------------------- '''
+# True = load trained model from file
+# False = train the model then save as file
+training_from_file(False)
+
+''' --------------------- TRAIN ---------------------'''
 
 
 def classify(line):
@@ -188,7 +207,7 @@ print("ready")
 s = " "
 while s:
     category = classify(s)
-    print("Movie",category)
+    print("Movie", category)
     text = getRandomTextFromIndex(category)
     print("Chatbot:" + text)
     s = input("Human:")
