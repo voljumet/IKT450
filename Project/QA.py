@@ -39,23 +39,24 @@ dataset = oppe()
 
 ''' --------------------------------'''
 questions = []
-answers = []
-answer_long_temp = []
-answer_long = []
+short_answers = []
+long_answer_temp = []
+long_answer = []
 
 
 questions.append(dataset['question']['tokens'])
-answers.append(dataset['annotations']['yes_no_answer'])
 
-answer_long_temp.append(dataset['document']['tokens'])
+short_answers.append(dataset['annotations']['yes_no_answer'])
+
+long_answer_temp.append(dataset['document']['tokens'])
 
 # remove all but short answer data
 
 
 # uses 'is_html' to filer out html from the long answer
-for i, each in enumerate(answer_long_temp[0]['is_html']):
+for i, each in enumerate(long_answer_temp[0]['is_html']):
     if each == 0:
-        answer_long.append(answer_long_temp[0]['token'][i])
+        long_answer.append(long_answer_temp[0]['token'][i])
 
 
 print("Data read!")
@@ -72,7 +73,11 @@ def remove_stopwords(dataset):
 # run remove_stopwords on data
 questions = remove_stopwords(questions)
 
-categories = list(set(y_train_temp_question))
+categories = list(set(short_answers))
+
+# does not need to be sorted if yes_no_answer is already 1 and 0
+# y_train_org = np.array([categories.index(i) for i in y_train_temp_question])
+
 
 
 
