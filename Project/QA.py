@@ -2,66 +2,70 @@ import glob
 import json
 from random import random
 import re
+import nltk
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
-from cuda_check import check_if_cuda
+import random as rand
 
-from datasets import list_datasets, load_dataset, list_metrics, load_metric, get_dataset_config_names, get_dataset_split_names
-# check_if_cuda()
+import nltk
+from nltk.stem import WordNetLemmatizer
+from nltk.corpus import stopwords
+
+from datasets import list_datasets, load_dataset, list_metrics, load_metric, get_dataset_config_names, \
+	get_dataset_split_names
 
 
 def short_answers_make(input):
-    array = []
-    for each in input:
-        array.append(each[0])
-    return array
+	array = []
+	for each in input:
+		array.append(each[0])
+	return array
 
 
 def json_reader(path):
-    dataset = []
-    for file in glob.glob(path, recursive=True):
-        with open(file) as json_file:
-            dataset.append(json.load(json_file))
-    return dataset
+	dataset = []
+	for file in glob.glob(path, recursive=True):
+		with open(file) as json_file:
+			dataset.append(json.load(json_file))
+	return dataset
 
 
 ''' Code running on a machine with enough diskspace available? requires ~120GB '''
 local = True
 
 if local:
-    dataset = json_reader('Data/mydata*.json')
+	dataset = json_reader('Data/mydata*.json')
 else:
-    dataset = load_dataset('natural_questions', split='train')
+	dataset = load_dataset('natural_questions', split='train')
 ''' -------------------------------------------------------------------------- '''
 
 
 def filter_html(data):
-    long_answer_temp = []
-    for i, each in enumerate(data['is_html']):
-        if each == 0:
-            long_answer_temp.append(data['token'][i])
-    return long_answer_temp
+	long_answer_temp = []
+	for i, each in enumerate(data['is_html']):
+		if each == 0:
+			long_answer_temp.append(data['token'][i])
+	return long_answer_temp
 
 
 def load_data(dataset):
-    questions, short_answers, long_answer = [], [], []
-    for each in dataset:
-        if local:
-            if ((each[1]) != [-1]):
-                questions.append(each[0])
-                short_answers.append(each[1])
-                long_answer.append(filter_html(each[2]))
-        else:
-            if ((each["annotations"]["yes_no_answer"]) != [-1]):
-                questions.append(each['question']['tokens'])
-                short_answers.append(each['annotations']['yes_no_answer'])
-                long_answer.append(filter_html(each['document']['tokens']))
-    return questions, short_answers, long_answer
+	questions, short_answers, long_answer = [], [], []
+	for each in dataset:
+		if local:
+			if ((each[1]) != [-1]):
+				questions.append(each[0])
+				short_answers.append(each[1])
+				long_answer.append(filter_html(each[2]))
+		else:
+			if ((each["annotations"]["yes_no_answer"]) != [-1]):
+				questions.append(each['question']['tokens'])
+				short_answers.append(each['annotations']['yes_no_answer'])
+				long_answer.append(filter_html(each['document']['tokens']))
+	return questions, short_answers, long_answer
+
 
 # def new(data):
 #     save_data = []
@@ -84,25 +88,29 @@ questions, short_answers, long_answer = load_data(dataset)
 # fix short answer array
 short_answers = short_answers_make(short_answers)
 
-
 print("Data read!")
-stopwords = stopwords.words('english')
-lm = WordNetLemmatizer()
+try:
+	stopwords = set(stopwords.words('english'))
+	lm = WordNetLemmatizer()
+except:
+	print("Did not find module stopwords or lemm, downloading ...")
+	nltk.download('stopwords')
+	nltk.download('wordnet')
 
 
 def nat_lang_proc(all_questions):
-    removed_stopwords = []
-    all_words = []
-    for each_question in all_questions:
-        for each_word in each_question:
-            # each_question[each_question.index(each_word)] = re.sub(r"[^a-zA-Z0-9]","", each_word) # DOES NOT WORK!!!
-            if each_word.lower() in stopwords:
-                each_question.remove(each_word)
-            else:
-                each_question[each_question.index(each_word)] = lm.lemmatize(each_word.lower())
-                all_words.append(each_word.lower())
-        removed_stopwords.append(each_question)
-    return removed_stopwords, all_words
+	removed_stopwords = []
+	all_words = []
+	for each_question in all_questions:
+		for each_word in each_question:
+			# each_question[each_question.index(each_word)] = re.sub(r"[^a-zA-Z0-9]","", each_word) # DOES NOT WORK!!!
+			if each_word.lower() in stopwords:
+				each_question.remove(each_word)
+			else:
+				each_question[each_question.index(each_word)] = lm.lemmatize(each_word.lower())
+				all_words.append(each_word.lower())
+		removed_stopwords.append(each_question)
+	return removed_stopwords, all_words
 
 
 print("Removing stopwords ...")
@@ -112,8 +120,8 @@ print("Stopwords removed ...")
 categories = list(set(short_answers))
 y_train = []
 for n in [categories.index(i) for i in short_answers]:
-    y_train.append([0 for i in range(len(categories))])
-    y_train[-1][n] = 1
+	y_train.append([0 for i in range(len(categories))])
+	y_train[-1][n] = 1
 
 unique_words = list(set(all_words))
 x_train = []
@@ -121,59 +129,69 @@ x_train = []
 # take "max_words" amount of words and put it in an array as a number pointing to the words index in the "uniquewords" array
 max_words = 11
 
-def makeTextIntoNumbers(text):
-    numbers = np.zeros(max_words, dtype=int)
-    for count, each_word in enumerate(text):
-        if count == max_words:
-            break
-        try:
-            numbers[count] = unique_words.index(each_word)
-        except ValueError:
-            continue
 
-    return list(numbers[:max_words])
+def makeTextIntoNumbers(text):
+	numbers = np.zeros(max_words, dtype=int)
+	for count, each_word in enumerate(text):
+		if count == max_words:
+			break
+		try:
+			numbers[count] = unique_words.index(each_word)
+		except ValueError:
+			continue
+
+	return list(numbers[:max_words])
 
 
 for each in x_train_temp:
-    x_train.append(makeTextIntoNumbers(each))
-
-x_train = torch.LongTensor(x_train)
-y_train = torch.Tensor(y_train)
+	x_train.append(makeTextIntoNumbers(each))
 
 if torch.cuda.is_available():
-    print("Running on CUDA ...")
-    x_train = x_train.to(torch.device("cuda"))
-    y_train = y_train.to(torch.device("cuda"))
+	print("Running on CUDA ...")
+	using_cuda = True
+	x_train = torch.LongTensor(x_train).cuda()
+	y_train = torch.Tensor(y_train).cuda()
 else:
-    print("Running on CPU ...")
+	print("Running on CPU ...")
+	using_cuda = False
+	x_train = torch.LongTensor(x_train)
+	y_train = torch.Tensor(y_train)
 
 
 class Net(nn.Module):
-    def __init__(self):
-        super(Net, self).__init__()
-        self.embedding = nn.Embedding(len(unique_words), 20)
+	def __init__(self):
+		super(Net, self).__init__()
 
-        self.lstm = nn.LSTM(input_size=20,
-                            hidden_size=16,
-                            num_layers=1,
-                            batch_first=True,
-                            bidirectional=False)
+		if using_cuda:
+			self.embedding = nn.Embedding(len(unique_words), 20).cuda()
 
-        self.fc1 = nn.Linear(16, 256)
-        self.fc2 = nn.Linear(256, 2)
-        self.sigmoid = nn.Sigmoid()
+			self.lstm = nn.LSTM(input_size=20, hidden_size=16, num_layers=1,
+			                    batch_first=True, bidirectional=False).cuda()
 
-    def forward(self, x):
-        e = self.embedding(x)
-        output, hidden = self.lstm(e)
+			self.fc1 = nn.Linear(16, 256).cuda()
+			self.fc2 = nn.Linear(256, 2).cuda()
+			self.sigmoid = nn.Sigmoid().cuda()
+		else:
+			self.embedding = nn.Embedding(len(unique_words), 20)
+			self.lstm = nn.LSTM(input_size=20, hidden_size=16, num_layers=1,
+			                    batch_first=True, bidirectional=False)
 
-        X = self.fc1(output[:, -1, :])
-        X = F.relu(X)
+			self.fc1 = nn.Linear(16, 256)
+			self.fc2 = nn.Linear(256, 2)
+			self.sigmoid = nn.Sigmoid()
 
-        X = self.fc2(X)
-        X = torch.sigmoid(X)
+	def forward(self, x):
+		e = self.embedding(x)
 
-        return X
+		output, hidden = self.lstm(e)
+
+		X = self.fc1(output[:, -1, :])
+		X = F.relu(X)
+
+		X = self.fc2(X)
+		X = torch.sigmoid(X)
+
+		return X
 
 
 batch_size = 1
@@ -191,25 +209,30 @@ validate_loss = []
 train_loss_acc = []
 validate_acc = []
 
-def avg(l):
-    return sum(l)/len(l)
 
-n_steps = 30000
+def avg(l):
+	return sum(l) / len(l)
+
+
+n_steps = 3000
+
 
 def training_from_file(bool):
-    if bool:
-        nene.load_state_dict(torch.load(f"trained_steps:{n_steps}_maxwords:{max_words}_datasize:{len(x_train)}_V1.pth"))
-    else:
-        for i in range(n_steps):
-            y_pred_train = nene(x_train)
-            loss_train = loss_fn(y_pred_train, y_train)
-            optimizer.zero_grad()
-            loss_train.backward()
-            optimizer.step()
-            if (i % 250) == 0:
-                print("loss:", loss_train.detach().numpy(), "- step:", i)
+	if bool:
+		nene.load_state_dict(torch.load(f"trained_steps:{n_steps}_maxwords:{max_words}_datasize:{len(x_train)}_V1.pth"))
+	else:
+		for i in range(n_steps):
+			y_pred_train = nene(x_train)
+			loss_train = loss_fn(y_pred_train, y_train)
 
-        torch.save(nene.state_dict(), "trained_n.pth")
+			optimizer.zero_grad()
+			loss_train.backward()
+			optimizer.step()
+			if (i % 250) == 0:
+				print("loss:", loss_train.cpu().detach().numpy(), "- step:", i)
+
+		torch.save(nene.state_dict(), f"trained_steps:{n_steps}_maxwords:{max_words}_datasize:{len(x_train)}_V1.pth")
+		print("Training complete! ...")
 
 
 ''' --------------------- TRAIN --------------------- '''
@@ -221,24 +244,30 @@ training_from_file(False)
 
 
 def classify(line):
-    indices = makeTextIntoNumbers(line)
-    tensor = torch.LongTensor([indices])
-    output = nene(tensor).detach().numpy()
-    aindex = np.argmax(output)
-    return aindex
+	indices = makeTextIntoNumbers(line)
+	if using_cuda:
+		tensor = torch.LongTensor([indices]).cuda()
+	else:
+		tensor = torch.LongTensor([indices])
+
+	output = nene(tensor).cpu().detach().numpy()
+	aindex = np.argmax(output)
+	return aindex
+
 
 def getRandomTextFromIndex(aIndex):
-    res = -1
-    while res != aIndex:
-        aNumber = random.randint(0, len(y_train) - 1)
-        res = y_train[aNumber]
-    return x_train[aNumber]
+	res = -1
+	while res != aIndex:
+		aNumber = rand.randint(0, len(y_train) - 1)
+		res = y_train[aNumber]
+	return x_train[aNumber]
+
 
 print("ready")
 s = " "
 while s:
-    category = classify(s)
-    print("Movie", category)
-    text = getRandomTextFromIndex(category)
-    print("Chatbot:" + text)
-    s = input("Human:")
+	category = classify(s)
+	print("Movie", category)
+	text = getRandomTextFromIndex(category)
+	print("Chatbot:" + text)
+	s = input("Human:")
