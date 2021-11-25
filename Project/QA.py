@@ -37,7 +37,7 @@ def json_reader(path):
 local = True
 
 if local:
-	dataset = json_reader('Data/mydata*.json')
+	dataset = json_reader('Test-Data/mydata*.json')
 else:
 	dataset = load_dataset('natural_questions', split='train')
 ''' -------------------------------------------------------------------------- '''
