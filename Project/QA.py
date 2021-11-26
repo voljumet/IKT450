@@ -98,24 +98,27 @@ except:
 	nltk.download('wordnet')
 
 
-def nat_lang_proc(all_questions):
-	removed_stopwords = []
+def nat_lang_proc(question):
+	for each_word in question:
+		# each_question[each_question.index(each_word)] = re.sub(r"[^a-zA-Z0-9]","", each_word) # DOES NOT WORK!!!
+		if each_word.lower() in stopwords:
+			question.remove(each_word)
+		else:
+			question[question.index(each_word)] = lm.lemmatize(each_word.lower())
+	return question
+
+def split_dataset(all_questions):
+	sentences = []
 	all_words = []
 	for each_question in all_questions:
-		for each_word in each_question:
-			# each_question[each_question.index(each_word)] = re.sub(r"[^a-zA-Z0-9]","", each_word) # DOES NOT WORK!!!
-			if each_word.lower() in stopwords:
-				each_question.remove(each_word)
-			else:
-				each_question[each_question.index(each_word)] = lm.lemmatize(each_word.lower())
-				all_words.append(each_word.lower())
-		removed_stopwords.append(each_question)
-	return removed_stopwords, all_words
+		sent = nat_lang_proc(each_question)
+		all_words += sent
+		sentences.append(sent)
+	return sentences, all_words
 
-
-print("Removing stopwords ...")
-x_train_temp, all_words = nat_lang_proc(questions)
-print("Stopwords removed ...")
+print("Natural Language Process started ...")
+x_train_temp, all_words = split_dataset(questions)
+print("Done!")
 
 categories = list(set(short_answers))
 y_train = []
@@ -166,7 +169,7 @@ class Net(nn.Module):
 			self.embedding = nn.Embedding(len(unique_words), 20).cuda()
 
 			self.lstm = nn.LSTM(input_size=20, hidden_size=16, num_layers=1,
-			                    batch_first=True, bidirectional=False).cuda()
+								batch_first=True, bidirectional=False).cuda()
 
 			self.fc1 = nn.Linear(16, 256).cuda()
 			self.fc2 = nn.Linear(256, 2).cuda()
@@ -174,7 +177,7 @@ class Net(nn.Module):
 		else:
 			self.embedding = nn.Embedding(len(unique_words), 20)
 			self.lstm = nn.LSTM(input_size=20, hidden_size=16, num_layers=1,
-			                    batch_first=True, bidirectional=False)
+								batch_first=True, bidirectional=False)
 
 			self.fc1 = nn.Linear(16, 256)
 			self.fc2 = nn.Linear(256, 2)
@@ -210,16 +213,18 @@ train_loss_acc = []
 validate_acc = []
 
 
-def avg(l):
-	return sum(l) / len(l)
+def avg(number):
+	return sum(number) / len(number)
 
 
 n_steps = 3000
 
 
 def training_from_file(bool):
+	file_name = f"trained_steps_{n_steps}_maxwords_{max_words}_datasize_{len(x_train)}_V1.pth"
 	if bool:
-		nene.load_state_dict(torch.load(f"trained_steps:{n_steps}_maxwords:{max_words}_datasize:{len(x_train)}_V1.pth"))
+		nene.load_state_dict(torch.load(file_name, map_location='cpu'))
+		print("Trained model loaded from file, using the file: ", file_name)
 	else:
 		for i in range(n_steps):
 			y_pred_train = nene(x_train)
@@ -231,15 +236,14 @@ def training_from_file(bool):
 			if (i % 250) == 0:
 				print("loss:", loss_train.cpu().detach().numpy(), "- step:", i)
 
-		torch.save(nene.state_dict(), f"trained_steps:{n_steps}_maxwords:{max_words}_datasize:{len(x_train)}_V1.pth")
-		print("Training complete! ...")
+		torch.save(nene.state_dict(), file_name)
+		print("Model training complete!")
 
 
 ''' --------------------- TRAIN --------------------- '''
 # True = load trained model from file
 # False = train the model then save as file
 training_from_file(False)
-
 ''' --------------------- TRAIN ---------------------'''
 
 
@@ -264,10 +268,13 @@ def getRandomTextFromIndex(aIndex):
 
 
 print("ready")
-s = " "
-while s:
-	category = classify(s)
-	print("Movie", category)
-	text = getRandomTextFromIndex(category)
-	print("Chatbot:" + text)
-	s = input("Human:")
+text = "first"
+while text:
+	array = []
+	array.append(text)
+	out, ewer = nat_lang_proc(array)
+	category = classify(text)
+	print("category prdiction: ", category)
+	# text = getRandomTextFromIndex(category)
+	# print("Chatbot:" + text)
+	s = input("Ask question: ")
