@@ -1,123 +1,32 @@
-import glob
-import json
-from random import random
-import re
-import nltk
-import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-import random as rand
 
-import nltk
-from nltk.stem import WordNetLemmatizer
-from nltk.corpus import stopwords
+import training_func as tf
+import testing_func as tes
 
 from datasets import list_datasets, load_dataset, list_metrics, load_metric, get_dataset_config_names, \
 	get_dataset_split_names
 
 
-def short_answers_make(input):
-	array = []
-	for each in input:
-		array.append(each[0])
-	return array
-
-
-def json_reader(path):
-	dataset = []
-	for file in glob.glob(path, recursive=True):
-		with open(file) as json_file:
-			dataset.append(json.load(json_file))
-	return dataset
 
 
 ''' Code running on a machine with enough diskspace available? requires ~120GB '''
 local = True
 
 if local:
-	dataset = json_reader('Test-Data/mydata*.json')
+	dataset = tf.json_reader('Test-Data/mydata*.json')
 else:
 	dataset = load_dataset('natural_questions', split='train')
 ''' -------------------------------------------------------------------------- '''
 
-
-def filter_html(data):
-	long_answer_temp = []
-	for i, each in enumerate(data['is_html']):
-		if each == 0:
-			long_answer_temp.append(data['token'][i])
-	return long_answer_temp
-
-
-def load_data(dataset):
-	questions, short_answers, long_answer = [], [], []
-	for each in dataset:
-		if local:
-			if ((each[1]) != [-1]):
-				questions.append(each[0])
-				short_answers.append(each[1])
-				long_answer.append(filter_html(each[2]))
-		else:
-			if ((each["annotations"]["yes_no_answer"]) != [-1]):
-				questions.append(each['question']['tokens'])
-				short_answers.append(each['annotations']['yes_no_answer'])
-				long_answer.append(filter_html(each['document']['tokens']))
-	return questions, short_answers, long_answer
-
-
-# def new(data):
-#     save_data = []
-#     save_data.append(data["question"]["tokens"])
-#     save_data.append(data["annotations"]["yes_no_answer"])
-#     save_data.append(data["document"]["tokens"])
-#     return save_data
-#
-# def json_write(data):
-#     for i, each in enumerate(data):
-#         if((data[i]["annotations"]["yes_no_answer"]) != [-1]):
-#             with open('Data/mydata'+str(i)+'.json', 'w') as f:
-#                 json.dump(new(data[i]), f)
-#
-# print("Done filtering")
-
-
-questions, short_answers, long_answer = load_data(dataset)
+# load data set
+questions, short_answers, long_answer = tf.load_data(dataset, local)
 
 # fix short answer array
-short_answers = short_answers_make(short_answers)
+short_answers = tf.short_answers_make(short_answers)
 
-print("Data read!")
-try:
-	stopwords = set(stopwords.words('english'))
-	lm = WordNetLemmatizer()
-except:
-	print("Did not find module stopwords or lemm, downloading ...")
-	nltk.download('stopwords')
-	nltk.download('wordnet')
-
-
-def nat_lang_proc(question):
-	for each_word in question:
-		# each_question[each_question.index(each_word)] = re.sub(r"[^a-zA-Z0-9]","", each_word) # DOES NOT WORK!!!
-		if each_word.lower() in stopwords:
-			question.remove(each_word)
-		else:
-			question[question.index(each_word)] = lm.lemmatize(each_word.lower())
-	return question
-
-def split_dataset(all_questions):
-	sentences = []
-	all_words = []
-	for each_question in all_questions:
-		sent = nat_lang_proc(each_question)
-		all_words += sent
-		sentences.append(sent)
-	return sentences, all_words
 
 print("Natural Language Process started ...")
-x_train_temp, all_words = split_dataset(questions)
+x_train_temp, all_words = tf.split_dataset(questions)
 print("Done!")
 
 categories = list(set(short_answers))
@@ -132,22 +41,8 @@ x_train = []
 # take "max_words" amount of words and put it in an array as a number pointing to the words index in the "uniquewords" array
 max_words = 11
 
-
-def makeTextIntoNumbers(text):
-	numbers = np.zeros(max_words, dtype=int)
-	for count, each_word in enumerate(text):
-		if count == max_words:
-			break
-		try:
-			numbers[count] = unique_words.index(each_word)
-		except ValueError:
-			continue
-
-	return list(numbers[:max_words])
-
-
 for each in x_train_temp:
-	x_train.append(makeTextIntoNumbers(each))
+	x_train.append(tf.makeTextIntoNumbers(each, max_words, unique_words))
 
 if torch.cuda.is_available():
 	print("Running on CUDA ...")
@@ -161,50 +56,10 @@ else:
 	y_train = torch.Tensor(y_train)
 
 
-class Net(nn.Module):
-	def __init__(self):
-		super(Net, self).__init__()
-
-		if using_cuda:
-			self.embedding = nn.Embedding(len(unique_words), 20).cuda()
-
-			self.lstm = nn.LSTM(input_size=20, hidden_size=16, num_layers=1,
-								batch_first=True, bidirectional=False).cuda()
-
-			self.fc1 = nn.Linear(16, 256).cuda()
-			self.fc2 = nn.Linear(256, 2).cuda()
-			self.sigmoid = nn.Sigmoid().cuda()
-		else:
-			self.embedding = nn.Embedding(len(unique_words), 20)
-			self.lstm = nn.LSTM(input_size=20, hidden_size=16, num_layers=1,
-								batch_first=True, bidirectional=False)
-
-			self.fc1 = nn.Linear(16, 256)
-			self.fc2 = nn.Linear(256, 2)
-			self.sigmoid = nn.Sigmoid()
-
-	def forward(self, x):
-		e = self.embedding(x)
-
-		output, hidden = self.lstm(e)
-
-		X = self.fc1(output[:, -1, :])
-		X = F.relu(X)
-
-		X = self.fc2(X)
-		X = torch.sigmoid(X)
-
-		return X
-
 
 batch_size = 1
 epochs = 5
 
-nene = Net()
-
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(nene.parameters(), lr=0.001)
-loss_fn = torch.nn.MSELoss()
 
 train_loss = []
 validate_loss = []
@@ -212,68 +67,21 @@ validate_loss = []
 train_loss_acc = []
 validate_acc = []
 
-
-def avg(number):
-	return sum(number) / len(number)
-
-
 n_steps = 3000
-
-
-def training_from_file(bool):
-	file_name = f"trained_steps_{n_steps}_maxwords_{max_words}_datasize_{len(x_train)}_V1.pth"
-	if bool:
-		nene.load_state_dict(torch.load(file_name, map_location='cpu'))
-		print("Trained model loaded from file, using the file: ", file_name)
-	else:
-		for i in range(n_steps):
-			y_pred_train = nene(x_train)
-			loss_train = loss_fn(y_pred_train, y_train)
-
-			optimizer.zero_grad()
-			loss_train.backward()
-			optimizer.step()
-			if (i % 250) == 0:
-				print("loss:", loss_train.cpu().detach().numpy(), "- step:", i)
-
-		torch.save(nene.state_dict(), file_name)
-		print("Model training complete!")
-
 
 ''' --------------------- TRAIN --------------------- '''
 # True = load trained model from file
 # False = train the model then save as file
-training_from_file(False)
+tf.training_from_file(True, n_steps, max_words, x_train, y_train)
 ''' --------------------- TRAIN ---------------------'''
 
-
-def classify(line):
-	indices = makeTextIntoNumbers(line)
-	if using_cuda:
-		tensor = torch.LongTensor([indices]).cuda()
-	else:
-		tensor = torch.LongTensor([indices])
-
-	output = nene(tensor).cpu().detach().numpy()
-	aindex = np.argmax(output)
-	return aindex
-
-
-def getRandomTextFromIndex(aIndex):
-	res = -1
-	while res != aIndex:
-		aNumber = rand.randint(0, len(y_train) - 1)
-		res = y_train[aNumber]
-	return x_train[aNumber]
 
 
 print("ready")
 text = "first"
 while text:
-	array = []
-	array.append(text)
-	out, ewer = nat_lang_proc(array)
-	category = classify(text)
+	out, ewer = tf.nat_lang_proc(text)
+	category = tes.classify(text)
 	print("category prdiction: ", category)
 	# text = getRandomTextFromIndex(category)
 	# print("Chatbot:" + text)
