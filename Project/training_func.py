@@ -81,7 +81,6 @@ def split_dataset(all_questions):
 	return sentences, all_words
 
 
-unique_words = []
 
 def makeTextIntoNumbers(text, max_words, unique_words):
 	numbers = np.zeros(max_words, dtype=int)
@@ -97,9 +96,8 @@ def makeTextIntoNumbers(text, max_words, unique_words):
 
 
 
-
 class Net(nn.Module):
-	def __init__(self):
+	def __init__(self, unique_words):
 		super(Net, self).__init__()
 
 		if torch.cuda.is_available():
@@ -137,16 +135,17 @@ def avg(number):
 	return sum(number) / len(number)
 
 
-nene = Net()
-
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(nene.parameters(), lr=0.001)
-loss_fn = torch.nn.MSELoss()
 
 
-def training_from_file(bool, n_steps, max_words, x_train, y_train):
-	file_name = f"trained_steps_{n_steps}_maxwords_{max_words}_datasize_{len(x_train)}_V1.pth"
-	if bool:
+
+def training_from_file(use_model, n_steps, x_train, y_train, file_name, unique_words):
+	nene = Net(unique_words)
+
+	criterion = nn.CrossEntropyLoss()
+	optimizer = optim.SGD(nene.parameters(), lr=0.001)
+	loss_fn = torch.nn.MSELoss()
+
+	if use_model:
 		nene.load_state_dict(torch.load(file_name, map_location='cpu'))
 		print("Trained model loaded from file, using the file: ", file_name)
 	else:

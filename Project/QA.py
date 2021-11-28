@@ -7,8 +7,6 @@ from datasets import list_datasets, load_dataset, list_metrics, load_metric, get
 	get_dataset_split_names
 
 
-
-
 ''' Code running on a machine with enough diskspace available? requires ~120GB '''
 local = True
 
@@ -57,10 +55,6 @@ else:
 
 
 
-batch_size = 1
-epochs = 5
-
-
 train_loss = []
 validate_loss = []
 
@@ -72,7 +66,8 @@ n_steps = 3000
 ''' --------------------- TRAIN --------------------- '''
 # True = load trained model from file
 # False = train the model then save as file
-tf.training_from_file(True, n_steps, max_words, x_train, y_train)
+file_name = f"trained_steps_{n_steps}_maxwords_{max_words}_datasize_{len(x_train)}_V1.pth"
+tf.training_from_file(use_model=True, n_steps=n_steps, x_train=x_train, y_train=y_train, file_name=file_name, unique_words=unique_words)
 ''' --------------------- TRAIN ---------------------'''
 
 
@@ -80,8 +75,8 @@ tf.training_from_file(True, n_steps, max_words, x_train, y_train)
 print("ready")
 text = "first"
 while text:
-	out, ewer = tf.nat_lang_proc(text)
-	category = tes.classify(text)
+	# out, ewer = tf.nat_lang_proc(text)
+	category = tes.classify(text, max_words, unique_words)
 	print("category prdiction: ", category)
 	# text = getRandomTextFromIndex(category)
 	# print("Chatbot:" + text)
