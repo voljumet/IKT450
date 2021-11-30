@@ -75,7 +75,7 @@ tf.training_from_file(use_model=False, n_steps=n_steps, x_train=x_train, y_train
 print("ready")
 text = "first question"
 while text:
-	out, ewer = tf.nat_lang_proc(text)
+	# out, ewer = tf.nat_lang_proc(text)
 	category = tes.classify(text, max_words, unique_words)
 
 	if category == 0:
