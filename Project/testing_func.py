@@ -12,7 +12,6 @@ def classify(line, max_words, unique_words):
 		tensor = torch.LongTensor([indices])
 
 	nene = tf.Net(unique_words)
-
 	output = nene(tensor).cpu().detach().numpy()
 	aindex = np.argmax(output)
 	return aindex

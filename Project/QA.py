@@ -67,17 +67,23 @@ n_steps = 3000
 # True = load trained model from file
 # False = train the model then save as file
 file_name = f"trained_steps_{n_steps}_maxwords_{max_words}_datasize_{len(x_train)}_V1.pth"
-tf.training_from_file(use_model=True, n_steps=n_steps, x_train=x_train, y_train=y_train, file_name=file_name, unique_words=unique_words)
+tf.training_from_file(use_model=False, n_steps=n_steps, x_train=x_train, y_train=y_train, file_name=file_name, unique_words=unique_words)
 ''' --------------------- TRAIN ---------------------'''
 
 
 
 print("ready")
-text = "first"
+text = "first question"
 while text:
-	# out, ewer = tf.nat_lang_proc(text)
+	out, ewer = tf.nat_lang_proc(text)
 	category = tes.classify(text, max_words, unique_words)
-	print("category prdiction: ", category)
+
+	if category == 0:
+		answer = "No"
+	else:
+		answer = "Yes"
+
+	print("category prdiction: ", answer)
 	# text = getRandomTextFromIndex(category)
 	# print("Chatbot:" + text)
 	s = input("Ask question: ")
