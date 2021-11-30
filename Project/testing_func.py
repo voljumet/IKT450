@@ -3,6 +3,8 @@ import training_func as tf
 import torch
 import random as rand
 
+def test_classify():
+	pass
 
 def classify(line, max_words, unique_words):
 	indices = tf.makeTextIntoNumbers(line, max_words, unique_words)
@@ -23,3 +25,5 @@ def getRandomTextFromIndex(aIndex, y_train, x_train):
 		aNumber = rand.randint(0, len(y_train) - 1)
 		res = y_train[aNumber]
 	return x_train[aNumber]
+
+

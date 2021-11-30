@@ -12,6 +12,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+from sklearn.model_selection import train_test_split
+
+import Project.testing_func as teff
+
 
 def short_answers_make(input):
 	array = []
@@ -37,13 +41,14 @@ def filter_html(data):
 
 
 def load_data(dataset, local):
-	questions, short_answers, long_answer = [], [], []
+	questions, short_answers, long_answer, label = [], [], [], []
 	for each in dataset:
 		if local:
 			if ((each[1]) != [-1]):
 				questions.append(each[0])
 				short_answers.append(each[1])
 				long_answer.append(filter_html(each[2]))
+
 		else:
 			if ((each["annotations"]["yes_no_answer"]) != [-1]):
 				questions.append(each['question']['tokens'])
@@ -131,14 +136,15 @@ class Net(nn.Module):
 
 		return X
 
+
 def avg(number):
 	return sum(number) / len(number)
 
 
 
+def training_from_file(use_model, n_steps, x_temp, y_temp, file_name, unique_words):
+	x_train, x_test, y_train, y_test = train_test_split(x_temp, y_temp, test_size=0.2, random_state=42, shuffle=True)
 
-
-def training_from_file(use_model, n_steps, x_train, y_train, file_name, unique_words):
 	nene = Net(unique_words)
 
 	criterion = nn.CrossEntropyLoss()
@@ -156,6 +162,7 @@ def training_from_file(use_model, n_steps, x_train, y_train, file_name, unique_w
 			optimizer.zero_grad()
 			loss_train.backward()
 			optimizer.step()
+			test_classification()
 			if (i % 250) == 0:
 				print("loss:", loss_train.cpu().detach().numpy(), "- step:", i)
 
