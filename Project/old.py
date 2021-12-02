@@ -243,7 +243,7 @@ def training_from_file(bool):
 ''' --------------------- TRAIN --------------------- '''
 # True = load trained model from file
 # False = train the model then save as file
-training_from_file(True)
+training_from_file(False)
 ''' --------------------- TRAIN ---------------------'''
 
 
