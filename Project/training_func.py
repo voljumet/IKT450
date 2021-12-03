@@ -1,6 +1,6 @@
 import glob
 import json
-
+from time import time
 import nltk
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import stopwords
@@ -11,6 +11,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+
+from classification import classify_text as cf
 
 
 def short_answers_make(input):
@@ -37,19 +39,25 @@ def filter_html(data):
 
 
 def load_data(dataset, local):
-	questions, short_answers, long_answer = [], [], []
+	questions, short_answers, long_answer, label = [], [], [], []
 	for each in dataset:
 		if local:
 			if ((each[1]) != [-1]):
 				questions.append(each[0])
 				short_answers.append(each[1])
 				long_answer.append(filter_html(each[2]))
+				start = time()
+				result = cf(' '.join(each[0]))
+				stop = time()
+				print(stop-start)
+				label.append(result['labels'][0])
+
 		else:
 			if ((each["annotations"]["yes_no_answer"]) != [-1]):
 				questions.append(each['question']['tokens'])
 				short_answers.append(each['annotations']['yes_no_answer'])
 				long_answer.append(filter_html(each['document']['tokens']))
-	return questions, short_answers, long_answer
+	return questions, short_answers, long_answer, label
 
 
 try:
@@ -62,12 +70,12 @@ except:
 
 
 def nat_lang_proc(question):
-	for each_word in question:
+	#for each_word in question:
 		# each_question[each_question.index(each_word)] = re.sub(r"[^a-zA-Z0-9]","", each_word) # DOES NOT WORK!!!
-		if each_word.lower() in stopwords:
-			question.remove(each_word)
-		else:
-			question[question.index(each_word)] = lm.lemmatize(each_word.lower())
+		#if each_word.lower() in stopwords:
+		#	question.remove(each_word)
+		#else:
+		#	question[question.index(each_word)] = lm.lemmatize(each_word.lower())
 	return question
 
 
@@ -107,7 +115,7 @@ class Net(nn.Module):
 								batch_first=True, bidirectional=False).cuda()
 
 			self.fc1 = nn.Linear(16, 256).cuda()
-			self.fc2 = nn.Linear(256, 2).cuda()
+			self.fc2 = nn.Linear(256, 15).cuda()
 			self.sigmoid = nn.Sigmoid().cuda()
 		else:
 			self.embedding = nn.Embedding(len(unique_words), 20)
@@ -115,7 +123,7 @@ class Net(nn.Module):
 								batch_first=True, bidirectional=False)
 
 			self.fc1 = nn.Linear(16, 256)
-			self.fc2 = nn.Linear(256, 2)
+			self.fc2 = nn.Linear(256, 15)
 			self.sigmoid = nn.Sigmoid()
 
 	def forward(self, x):
@@ -161,7 +169,7 @@ def training_from_file(use_model, n_steps, x_train, y_train, file_name, unique_w
 
 		torch.save(nene.state_dict(), file_name)
 		print("Model training complete!")
-
+	return nene
 
 ''' Peshangs load function'''
 # def new(data):

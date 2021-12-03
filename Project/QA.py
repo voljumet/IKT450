@@ -11,13 +11,13 @@ from datasets import list_datasets, load_dataset, list_metrics, load_metric, get
 local = True
 
 if local:
-	dataset = tf.json_reader('Test-Data/mydata*.json')
+	dataset = tf.json_reader('Data2/mydata*.json')
 else:
 	dataset = load_dataset('natural_questions', split='train')
 ''' -------------------------------------------------------------------------- '''
 
 # load data set
-questions, short_answers, long_answer = tf.load_data(dataset, local)
+questions, short_answers, long_answer, labels = tf.load_data(dataset, local)
 
 # fix short answer array
 short_answers = tf.short_answers_make(short_answers)

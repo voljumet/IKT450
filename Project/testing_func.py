@@ -4,14 +4,14 @@ import torch
 import random as rand
 
 
-def classify(line, max_words, unique_words):
+def classify(model ,line, max_words, unique_words):
 	indices = tf.makeTextIntoNumbers(line, max_words, unique_words)
 	if torch.cuda.is_available():
 		tensor = torch.LongTensor([indices]).cuda()
 	else:
 		tensor = torch.LongTensor([indices])
 
-	nene = tf.Net(unique_words)
+	nene = model
 	output = nene(tensor).cpu().detach().numpy()
 	aindex = np.argmax(output)
 	return aindex
