@@ -166,7 +166,7 @@ def printer(t_loss, t_acc, v_loss, v_acc):
 	plt.title(title1)
 	plt.ylabel('Loss')
 	plt.xlabel('Epoch')
-	plt.legend(['Train', 'Test'], loc='upper left')
+	plt.legend(['Test', 'Train'], loc='upper left')
 	fig.savefig(title1+'.jpg', bbox_inches='tight', dpi=150)
 	plt.show()
 
@@ -176,7 +176,7 @@ def printer(t_loss, t_acc, v_loss, v_acc):
 	plt.title(title2)
 	plt.ylabel('Accuracy')
 	plt.xlabel('Epoch')
-	plt.legend(['Train', 'Test'], loc='upper left')
+	plt.legend(['Test', 'Train'], loc='upper left')
 	fig.savefig(title2+'.jpg', bbox_inches='tight', dpi=150)
 	plt.show()
 
@@ -214,7 +214,7 @@ def training_from_file(use_model, n_steps, x_temp, y_temp, file_name, unique_wor
 		
 	model = Net(unique_words)
 
-	optimizer = optim.SGD(model.parameters(), lr=0.001)
+	optimizer = optim.Adam(model.parameters(), lr=0.001)
 	# criterion = nn.CrossEntropyLoss()
 	loss_fn = torch.nn.MSELoss()
 
@@ -236,9 +236,6 @@ def training_from_file(use_model, n_steps, x_temp, y_temp, file_name, unique_wor
 			y_pred_test = model(x_test)
 			loss_test = loss_fn(y_pred_test, y_test)
 
-			if (i % 25 == 0):
-				print(i, loss_train.item(), loss_test.item())
-
 			train_loss.append(loss_train.item())
 			validate_loss.append(loss_test.item())
 
@@ -251,7 +248,8 @@ def training_from_file(use_model, n_steps, x_temp, y_temp, file_name, unique_wor
 			acc_train = test_accuracy(label_train, predictions_train)
 
 			if (i % 25 == 0):
-				print(i, "acc test:", acc_test, "acc train:", acc_train)
+				print(i, "acc test:", round(acc_test, 4), "acc train:", round(acc_train, 4),
+				"loss test:", round(loss_train.item(), 4), "loss train:", round(loss_test.item(), 4))
 
 			train_acc.append(acc_test)
 			validate_acc.append(acc_train)
