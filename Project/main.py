@@ -16,8 +16,8 @@ from datasets import list_datasets, load_dataset, list_metrics, load_metric, get
 # 		break
 train_from_file = False
 local = True    # Code running on a machine with enough diskspace available? requires ~120GB
-max_words = 11  # take "max_words" amount of words and put it in an array as a number pointing to the words index in the "uniquewords" array
-n_steps = 1000
+max_words = 12  # take "max_words" amount of words and put it in an array as a number pointing to the words index in the "uniquewords" array
+n_steps = 5000
 
 
 if local:
@@ -55,14 +55,19 @@ for each in x_train_temp:
 # True = load trained model from file
 # False = train the model then save as file
 file_name = f"trained_steps_{n_steps}_maxwords_{max_words}_datasize_{len(x_temp)}_V1.pth"
-model = tf.training_from_file(use_model=train_from_file, n_steps=n_steps, x_temp=x_temp, y_temp=y_temp, file_name=file_name, len_unique_words=len(unique_words))
+
+for num_lay in range(1,2):
+	for input_s in range(7,8):
+		for hidden in range(5,6):
+			for out_in in range(111,112):
+				model = tf.training_from_file(use_model=train_from_file, n_steps=n_steps, x_temp=x_temp, y_temp=y_temp, file_name=file_name, len_unique_words=len(unique_words), input_s=input_s, hidden=hidden, out_in=out_in, num_lay=num_lay)
 ''' --------------------- TRAIN ---------------------'''
 
 print("ready")
 text = "first question"
 while text:
 	out = tf.natural_lang_process_one_question(text.split())
-	category = tes.classify(model, text, max_words, unique_words)
+	category = tes.classify(model, text, max_words)
 
 	if category == 0:
 		answer = "No"

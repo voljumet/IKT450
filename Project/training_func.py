@@ -17,7 +17,6 @@ import torch.optim as optim
 
 from sklearn.model_selection import train_test_split
 
-
 try:
 	stopwords = set(stopwords.words('english'))
 	lm = WordNetLemmatizer()
@@ -101,22 +100,22 @@ def make_text_into_numbers(text, max_words, unique_words):
 
 
 class Net(nn.Module):
-	def __init__(self, len_unique_words):
+	def __init__(self, len_unique_words, input_s, hidden, out_in, num_lay):
 		super(Net, self).__init__()
 
 		if torch.cuda.is_available():
-			self.embedding = nn.Embedding(len_unique_words, 20).cuda()
+			self.embedding = nn.Embedding(len_unique_words, input_s).cuda()
 
-			self.lstm = nn.LSTM(input_size=20, hidden_size=16, num_layers=1,
-								batch_first=True, bidirectional=False).cuda()
+			self.lstm = nn.LSTM(input_size=input_s, hidden_size=hidden, num_layers=num_lay,
+			                    batch_first=True, bidirectional=False).cuda()
 
-			self.fc1 = nn.Linear(16, 256).cuda()
-			self.fc2 = nn.Linear(256, 2).cuda()
+			self.fc1 = nn.Linear(hidden, out_in).cuda()
+			self.fc2 = nn.Linear(out_in, 2).cuda()
 			self.sigmoid = nn.Sigmoid().cuda()
 		else:
 			self.embedding = nn.Embedding(len_unique_words, 20)
 			self.lstm = nn.LSTM(input_size=20, hidden_size=16, num_layers=1,
-								batch_first=True, bidirectional=False)
+			                    batch_first=True, bidirectional=False)
 
 			self.fc1 = nn.Linear(16, 256)
 			self.fc2 = nn.Linear(256, 2)
@@ -136,16 +135,46 @@ class Net(nn.Module):
 		return X
 
 
-def test_accuracy(label, prediction):
-	counter = 0
+def test_fone(label, pred):
+	TP = 0
+	TN = 0
+	FP = 0
+	FN = 0
 	for k in range(len(label)):
-		if label[k] == prediction[k]:
+		predd = pred[k]
+		labbel = label[k]
+
+		if labbel == 1 and predd == 1:
+			TP += 1
+
+		if labbel == 0 and predd == 0:
+			TN += 1
+
+		if labbel == 1 and predd == 0:
+			FN += 1
+
+		if labbel == 0 and predd == 1:
+			FP += 1
+
+	print("Accuracy:", (TP + TN) / (TP + TN + FP + FN))
+	print("Recall", TP / (TP + FN))
+	print("Precision", TP / (TP + FP))
+	print("F1", (2 * TP) / (2 * TP + FP + FN))
+
+
+def test_accuracy(label, pred):
+	counter = 0
+
+	for k in range(len(label)):
+		predd = pred[k]
+		labbel = label[k]
+		if labbel == predd:
 			counter += 1
 
 	return counter / len(label)
 
 
-def classify(model, indices, unique_words):
+def classify(model, indices):
 	if torch.cuda.is_available():
 		tensor = torch.LongTensor([indices]).cuda()
 	else:
@@ -161,23 +190,23 @@ def printer(t_loss, t_acc, v_loss, v_acc):
 	fig = plt.figure(figsize=(10, 5))
 	plt.plot(t_loss)
 	plt.plot(v_loss)
-	title1 = 'Model loss'+ '('+ str(datetime.datetime.today())+')'
-	title2 = 'Model accuracy'+ '('+ str(datetime.datetime.today())+')'
+	title1 = 'Model loss' + '(' + str(datetime.datetime.today()) + ')'
 	plt.title(title1)
 	plt.ylabel('Loss')
 	plt.xlabel('Epoch')
 	plt.legend(['Test', 'Train'], loc='upper left')
-	fig.savefig(title1+'.jpg', bbox_inches='tight', dpi=150)
+	fig.savefig("gr_loss/"+ title1 + '.jpg', bbox_inches='tight', dpi=150)
 	plt.show()
 
 	fig = plt.figure(figsize=(10, 5))
 	plt.plot(t_acc)
 	plt.plot(v_acc)
+	title2 = 'Model accuracy' + '(' + str(datetime.datetime.today()) + ')'
 	plt.title(title2)
 	plt.ylabel('Accuracy')
 	plt.xlabel('Epoch')
 	plt.legend(['Test', 'Train'], loc='upper left')
-	fig.savefig(title2+'.jpg', bbox_inches='tight', dpi=150)
+	fig.savefig("gr_acc/"+ title2 + '.jpg', bbox_inches='tight', dpi=150)
 	plt.show()
 
 
@@ -204,10 +233,11 @@ def convert_tensor_to_list(inne):
 
 
 def avg(l):
-	return sum(l)/len(l)
+	return sum(l) / len(l)
 
 
-def training_from_file(use_model, n_steps, x_temp, y_temp, file_name, len_unique_words):
+def training_from_file(use_model, n_steps, x_temp, y_temp, file_name, len_unique_words, input_s, hidden, out_in,
+                       num_lay):
 	if use_model:
 		torch.load(x_temp, "x_temp_tensor_" + file_name)
 		torch.load(x_temp, "y_temp_tensor_" + file_name)
@@ -219,7 +249,7 @@ def training_from_file(use_model, n_steps, x_temp, y_temp, file_name, len_unique
 
 	x_train, y_train, x_test, y_test = using_cuda(x_train, y_train, x_test, y_test)
 
-	model = Net(len_unique_words)
+	model = Net(len_unique_words, input_s, hidden, out_in, num_lay)
 
 	optimizer = optim.Adam(model.parameters(), lr=0.001)
 	# criterion = nn.CrossEntropyLoss()
@@ -229,8 +259,8 @@ def training_from_file(use_model, n_steps, x_temp, y_temp, file_name, len_unique
 		model.load_state_dict(torch.load(file_name, map_location='cpu'))
 		print("Trained model loaded from file, using the file: ", file_name)
 	else:
-		train_loss, validate_loss = [],  []
-		train_acc, validate_acc = [], []
+		train_loss, test_loss = [], []
+		train_acc, test_acc = [], []
 
 		for i in range(n_steps):
 			y_pred_train = model(x_train)
@@ -244,24 +274,25 @@ def training_from_file(use_model, n_steps, x_temp, y_temp, file_name, len_unique
 			loss_test = loss_fn(y_pred_test, y_test)
 
 			train_loss.append(loss_train.item())
-			validate_loss.append(loss_test.item())
+			test_loss.append(loss_test.item())
 
 			acc_test = test_accuracy(convert_tensor_to_list(y_pred_test), convert_tensor_to_list(y_test))
 			acc_train = test_accuracy(convert_tensor_to_list(y_pred_train), convert_tensor_to_list(y_train))
 
 			if (i % 25 == 0):
+				test_fone(convert_tensor_to_list(y_pred_test), convert_tensor_to_list(y_test))
 				print(i, "acc test:", round(acc_test, 4), "acc train:", round(acc_train, 4),
-				"loss test:", round(loss_train.item(), 4), "loss train:", round(loss_test.item(), 4))
+				      "loss test:", round(loss_train.item(), 4), "loss train:", round(loss_test.item(), 4))
 
-			train_acc.append(acc_test)
-			validate_acc.append(acc_train)
+			train_acc.append(acc_train)
+			test_acc.append(acc_test)
 
-		printer(train_loss, train_acc, validate_loss, validate_acc)
-
-		torch.save(model.state_dict(), file_name)
+		#		printer(train_loss, train_acc, validate_loss, validate_acc)
+		max_value = avg(test_acc)
+		torch.save(model.state_dict(), "mod_acc/" + str(round(max_value, 5)) + "_ins:" + str(input_s) + "_hid:" + str(
+			hidden) + "_out:" + str(out_in) + "_lay:" + str(num_lay) + file_name)
 		print("Model training complete!")
 	return model
-
 
 
 ''' Peshangs load function'''
