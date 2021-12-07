@@ -101,11 +101,11 @@ def make_text_into_numbers(text, max_words, unique_words):
 
 
 class Net(nn.Module):
-	def __init__(self, unique_words):
+	def __init__(self, len_unique_words):
 		super(Net, self).__init__()
 
 		if torch.cuda.is_available():
-			self.embedding = nn.Embedding(len(unique_words), 20).cuda()
+			self.embedding = nn.Embedding(len_unique_words, 20).cuda()
 
 			self.lstm = nn.LSTM(input_size=20, hidden_size=16, num_layers=1,
 								batch_first=True, bidirectional=False).cuda()
@@ -114,7 +114,7 @@ class Net(nn.Module):
 			self.fc2 = nn.Linear(256, 2).cuda()
 			self.sigmoid = nn.Sigmoid().cuda()
 		else:
-			self.embedding = nn.Embedding(len(unique_words), 20)
+			self.embedding = nn.Embedding(len_unique_words, 20)
 			self.lstm = nn.LSTM(input_size=20, hidden_size=16, num_layers=1,
 								batch_first=True, bidirectional=False)
 
@@ -193,26 +193,33 @@ def using_cuda(x_train, y_train, x_test, y_test):
 	return x_train, y_train, x_test, y_test
 
 
-def accuracy(y_pred_train):
-	accuracy_test = []
-	for each in y_pred_train:
-		if each[0] == 1:
-			accuracy_test.append(0)
+def convert_tensor_to_list(inne):
+	lista = []
+	for each in inne.tolist():
+		if each[0] > each[1]:
+			lista.append(0)
 		else:
-			accuracy_test.append(1)
-	return accuracy_test
+			lista.append(1)
+	return lista
 
 
 def avg(l):
 	return sum(l)/len(l)
 
 
-def training_from_file(use_model, n_steps, x_temp, y_temp, file_name, unique_words):
+def training_from_file(use_model, n_steps, x_temp, y_temp, file_name, len_unique_words):
+	if use_model:
+		torch.load(x_temp, "x_temp_tensor_" + file_name)
+		torch.load(x_temp, "y_temp_tensor_" + file_name)
+	else:
+		torch.save(x_temp, "x_temp_tensor_" + file_name)
+		torch.save(x_temp, "y_temp_tensor_" + file_name)
+
 	x_train, x_test, y_train, y_test = train_test_split(x_temp, y_temp, test_size=0.2, random_state=42, shuffle=True)
 
 	x_train, y_train, x_test, y_test = using_cuda(x_train, y_train, x_test, y_test)
-		
-	model = Net(unique_words)
+
+	model = Net(len_unique_words)
 
 	optimizer = optim.Adam(model.parameters(), lr=0.001)
 	# criterion = nn.CrossEntropyLoss()
@@ -239,13 +246,8 @@ def training_from_file(use_model, n_steps, x_temp, y_temp, file_name, unique_wor
 			train_loss.append(loss_train.item())
 			validate_loss.append(loss_test.item())
 
-			predictions_test = [round(i[0]) for i in y_pred_test.tolist()]
-			label_test = accuracy(y_test.tolist())
-			acc_test = test_accuracy(label_test, predictions_test)
-
-			predictions_train = [round(i[0]) for i in y_pred_train.tolist()]
-			label_train = accuracy(y_train.tolist())
-			acc_train = test_accuracy(label_train, predictions_train)
+			acc_test = test_accuracy(convert_tensor_to_list(y_pred_test), convert_tensor_to_list(y_test))
+			acc_train = test_accuracy(convert_tensor_to_list(y_pred_train), convert_tensor_to_list(y_train))
 
 			if (i % 25 == 0):
 				print(i, "acc test:", round(acc_test, 4), "acc train:", round(acc_train, 4),

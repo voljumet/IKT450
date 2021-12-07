@@ -55,7 +55,7 @@ for each in x_train_temp:
 # True = load trained model from file
 # False = train the model then save as file
 file_name = f"trained_steps_{n_steps}_maxwords_{max_words}_datasize_{len(x_temp)}_V1.pth"
-model = tf.training_from_file(use_model=train_from_file, n_steps=n_steps, x_temp=x_temp, y_temp=y_temp, file_name=file_name, unique_words=unique_words)
+model = tf.training_from_file(use_model=train_from_file, n_steps=n_steps, x_temp=x_temp, y_temp=y_temp, file_name=file_name, len_unique_words=len(unique_words))
 ''' --------------------- TRAIN ---------------------'''
 
 print("ready")
