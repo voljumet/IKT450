@@ -5,14 +5,9 @@ import random as rand
 
 
 def classify(model ,line, max_words, unique_words):
-	indices = tf.makeTextIntoNumbers(line, max_words, unique_words)
-	if torch.cuda.is_available():
-		tensor = torch.LongTensor([indices]).cuda()
-	else:
-		tensor = torch.LongTensor([indices])
-
-	nene = model
-	output = nene(tensor).cpu().detach().numpy()
+	indices = tf.makeTextIntoNumbers1(line, max_words, unique_words)
+	tensor = torch.LongTensor([indices])
+	output = model(tensor).detach().numpy()
 	aindex = np.argmax(output)
 	return aindex
 

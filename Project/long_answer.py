@@ -9,13 +9,13 @@ from datasets import list_datasets, load_dataset, list_metrics, load_metric, get
 local = True
 
 if local:
-    dataset = tf.json_reader('Data2/mydata*.json')
+    dataset = tf.json_reader('training-data/mydata*.json')
 else:
     dataset = load_dataset('natural_questions', split='train')
 ''' -------------------------------------------------------------------------- '''
 categories = ["environment", "politics", "advertisement", "public health", "research", "science", "music",
               "elections", "economics", "sport", "education", "business", "technology", "history", "entertainment"]
-# load data set
+# load training data set
 questions, short_answers, long_answer, labels = tf.load_data(dataset, local)
 
 x_train_org = []
@@ -45,10 +45,10 @@ unique_words = list(set(all_words))
 x_train = []
 
 # take "max_words" amount of words and put it in an array as a number pointing to the words index in the "uniquewords" array
-max_words = 6
+max_words = 11
 
 for each in x_train_temp:
-    x_train.append(tf.makeTextIntoNumbers(each, max_words, unique_words))
+    x_train.append(tf.makeTextIntoNumbers1(each, max_words, unique_words))
 
 if torch.cuda.is_available():
     print("Running on CUDA ...")
@@ -69,14 +69,58 @@ validate_acc = []
 
 n_steps = 10000
 
+
+############################ Test data set ##########################
+test_dataset = tf.json_reader('validation-data/mydata*.json')
+#load test data set
+test_questions, test_short_answers, test_long_answer, test_labels = tf.load_data(test_dataset, local)
+
+x_test_org = []
+for i in range(len(test_long_answer)):
+    x_test_org.append(' '.join(test_long_answer[i]))
+
+y_test_org = []
+for n in range(len(test_questions)):
+    y_test_org.append(categories.index(test_labels[n]))
+# fix short answer array
+test_short_answers = tf.short_answers_make(test_short_answers)
+
+print("Test Natural Language Process started ...")
+x_test_temp, test_all_words = tf.split_dataset(test_questions)
+print("Done!")
+
+
+y_test = []
+
+for n in [categories.index(i) for i in test_labels]:
+    y_test.append([0 for i in range(num_categories)])
+    y_test[-1][n] = 1
+    pass
+
+test_nique_words = list(set(test_all_words))
+x_test = []
+max_words = 11
+for each in x_test_temp:
+    x_test.append(tf.makeTextIntoNumbers1(each, max_words, test_nique_words))
+
+if torch.cuda.is_available():
+    print("Running on CUDA ...")
+    using_cuda = True
+    x_test = torch.LongTensor(x_test).cuda()
+    y_test = torch.Tensor(y_test).cuda()
+else:
+    print("Running on CPU ...")
+    using_cuda = False
+    x_test = torch.LongTensor(x_test)
+    y_test = torch.Tensor(y_test)
+####################################################################
 ''' --------------------- TRAIN --------------------- '''
 # True = load trained model from file
 # False = train the model then save as file
 file_name = f"trained_steps_{n_steps}_maxwords_{max_words}_datasize_{len(x_train)}_V1.pth"
 nene =  tf.training_from_file(use_model=False, n_steps=n_steps, x_train=x_train, y_train=y_train, file_name=file_name,
-                      unique_words=unique_words)
+                      unique_words=unique_words, questions= questions, max_words= max_words, y_train_org= y_train_org, y_test_org= y_test_org,  test_questions =test_questions)
 ''' --------------------- TRAIN ---------------------'''
-
 
 def getRandomTextFromIndex(aIndex):
     res = -1
@@ -87,11 +131,22 @@ def getRandomTextFromIndex(aIndex):
 
 
 print("ready")
-s = "are sam club and walmart owned by the same company"
+s = " "
 print("Length of unique_words: ", len(unique_words))
-while s:
-    category = tes.classify(nene ,s, max_words, unique_words)
-    print("category: ", category)
-    text = getRandomTextFromIndex(category)
-    print("Chatbot:" + ' '.join(text))
-    s = input("Human:")
+j = 0
+count = 0
+for i in questions:
+    category = tes.classify(nene, i, max_words, unique_words)
+    if category == y_train_org[j]:
+        count += 1
+    j+= 1
+print("count: ", count)
+print("Question: ", len(questions))
+print("Accuracy: ", count/len(questions))
+# while s:
+#     category = tes.classify(nene ,s, max_words, unique_words)
+#     print("category: ", category)
+#
+#     text = getRandomTextFromIndex(category)
+#     print("Chatbot:" + ' '.join(text))
+#     s = input("Human:")

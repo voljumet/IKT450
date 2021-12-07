@@ -6,11 +6,14 @@ from nltk.stem import WordNetLemmatizer
 from nltk.corpus import stopwords
 
 import numpy as np
-
+from torch.optim import Adam
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import testing_func as tes
+import matplotlib.pyplot as plt
+import datetime
 
 from classification import classify_text as cf
 
@@ -88,9 +91,7 @@ def split_dataset(all_questions):
 		sentences.append(sent)
 	return sentences, all_words
 
-
-
-def makeTextIntoNumbers(text, max_words, unique_words):
+def makeTextIntoNumbers1(text, max_words, unique_words):
 	numbers = np.zeros(max_words, dtype=int)
 	for count, each_word in enumerate(text):
 		if count == max_words:
@@ -101,7 +102,16 @@ def makeTextIntoNumbers(text, max_words, unique_words):
 			continue
 
 	return list(numbers[:max_words])
-
+def makeTextIntoNumbers(text, max_words, unique_words):
+	iwords = text.lower().split(' ')
+	numbers = []
+	for n in iwords:
+		try:
+			numbers.append(unique_words.index(n))
+		except ValueError:
+			numbers.append(0)
+	numbers = numbers + [0,0,0,0,0]
+	return numbers[:6]
 
 
 class Net(nn.Module):
@@ -114,17 +124,16 @@ class Net(nn.Module):
 			self.lstm = nn.LSTM(input_size=20, hidden_size=16, num_layers=1,
 								batch_first=True, bidirectional=False).cuda()
 
-			self.fc1 = nn.Linear(16, 256).cuda()
-			self.fc2 = nn.Linear(256, 15).cuda()
+			self.fc1 = nn.Linear(16, 128).cuda()
+			self.fc2 = nn.Linear(128, 15).cuda()
 			self.sigmoid = nn.Sigmoid().cuda()
 		else:
 			self.embedding = nn.Embedding(len(unique_words), 20)
 			self.lstm = nn.LSTM(input_size=20, hidden_size=16, num_layers=1,
 								batch_first=True, bidirectional=False)
 
-			self.fc1 = nn.Linear(16, 256)
-			self.fc2 = nn.Linear(256, 15)
-			self.sigmoid = nn.Sigmoid()
+			self.fc1 = nn.Linear(16, 128)
+			self.fc2 = nn.Linear(128, 15)
 
 	def forward(self, x):
 		e = self.embedding(x)
@@ -143,14 +152,38 @@ def avg(number):
 	return sum(number) / len(number)
 
 
+def printer(t_acc, v_acc):
+	# Plot training & validation accuracy values
+	fig = plt.figure(figsize=(10, 5))
+	title1 = 'Model loss'+ '('+ str(datetime.datetime.today())+')'
+	title2 = 'Model accuracy'+ '('+ str(datetime.datetime.today())+')'
+	plt.title(title1)
+	plt.ylabel('Loss')
+	plt.xlabel('Epoch')
+	plt.legend(['Train', 'Test'], loc='upper left')
+	fig.savefig(title1+'.jpg', bbox_inches='tight', dpi=150)
+	plt.show()
+
+	fig = plt.figure(figsize=(10, 5))
+	plt.plot(t_acc)
+	plt.plot(v_acc)
+	plt.title(title2)
+	plt.ylabel('Accuracy')
+	plt.xlabel('Epoch')
+	plt.legend(['Train', 'Test'], loc='upper left')
+	fig.savefig(title2+'.jpg', bbox_inches='tight', dpi=150)
+	plt.show()
 
 
 
-def training_from_file(use_model, n_steps, x_train, y_train, file_name, unique_words):
+
+def training_from_file(use_model, n_steps, x_train, y_train, file_name, unique_words, questions, max_words, y_train_org, y_test_org ,test_questions):
+	train_acc = []
+	validate_acc = []
 	nene = Net(unique_words)
 
 	criterion = nn.CrossEntropyLoss()
-	optimizer = optim.SGD(nene.parameters(), lr=0.001)
+	optimizer = Adam(nene.parameters(), lr=0.001, weight_decay=0.0001)
 	loss_fn = torch.nn.MSELoss()
 
 	if use_model:
@@ -165,9 +198,26 @@ def training_from_file(use_model, n_steps, x_train, y_train, file_name, unique_w
 			loss_train.backward()
 			optimizer.step()
 			if (i % 250) == 0:
-				print("loss:", loss_train.cpu().detach().numpy(), "- step:", i)
+				j = 0
+				count = 0
+				for q in questions:
+					category = tes.classify(nene, q, max_words, unique_words)
+					if category == y_train_org[j]:
+						count += 1
+					j += 1
+				train_acc.append(count / len(questions))
+				k = 0
+				test_count = 0
+				for t in test_questions:
+					test_category = tes.classify(nene, t, max_words, unique_words)
+					if test_category == y_test_org[k]:
+						test_count += 1
+					k += 1
+				validate_acc.append(test_count / len(test_questions))
+				print("loss:", loss_train.cpu().detach().numpy(), "- step:", i, " Training Accuracy: ", count / len(questions), " Testing Accuracy: ", test_count / len(test_questions))
 
 		torch.save(nene.state_dict(), file_name)
+		printer(train_acc, validate_acc)
 		print("Model training complete!")
 	return nene
 
