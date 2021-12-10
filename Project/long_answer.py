@@ -2,26 +2,31 @@ import torch
 import random
 import training_func as tf
 import testing_func as tes
+import pandas as pd
 from datasets import list_datasets, load_dataset, list_metrics, load_metric, get_dataset_config_names, \
     get_dataset_split_names
 from sklearn.model_selection import train_test_split
 
 ''' Code running on a machine with enough diskspace available? requires ~120GB '''
-local = True
+local = False
 
 if local:
     dataset = tf.json_reader('training-data/mydata*.json')
 else:
-    dataset = load_dataset('natural_questions', split='train')
+    dataset1 = load_dataset('natural_questions', split='train')
 ''' -------------------------------------------------------------------------- '''
 categories = ["environment", "politics", "advertisement", "public health", "research", "science", "music",
               "elections", "economics", "sport", "education", "business", "technology", "history", "entertainment"]
+print(len(dataset1))
+dataset = []
+for i in range(100000):
+    dataset.append(dataset1[i])
 
+print(len(dataset))
 # load training data set
 questions, short_answers, long_answer, labels = tf.load_data(dataset, local)
-
+print(len(questions))
 x_train1, x_test1, y_train1, y_test1 = train_test_split(questions, labels, test_size=0.2, random_state=42, shuffle=True)
-
 # contain long answers
 x_train_org = []
 for i in range(len(long_answer)):
@@ -133,7 +138,7 @@ else:
 # False = train the model then save as file
 file_name = f"trained_steps_{n_steps}_maxwords_{max_words}_datasize_{len(x_train)}_V1.pth"
 nene =  tf.training_from_file(use_model=False, n_steps=n_steps, x_train=x_train, y_train=y_train, file_name=file_name,
-                      unique_words=unique_words, questions= questions, max_words= max_words,  y_test= y_test,  x_test=x_test, y_train_org = y_train_org, y_test_org = y_test_org)
+                      unique_words=unique_words, questions= questions, max_words= max_words,  y_test= y_test,  x_test=x_test,x_train1= x_train1, x_test1 = x_test1, y_train_org = y_train_org, y_test_org = y_test_org)
 ''' --------------------- TRAIN ---------------------'''
 
 def getRandomTextFromIndex(aIndex):
