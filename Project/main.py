@@ -1,20 +1,9 @@
-import torch
-
 import training_func as tf
 import testing_func as tes
 
-from datasets import list_datasets, load_dataset, list_metrics, load_metric, get_dataset_config_names, \
-	get_dataset_split_names
-# si = ''
-# while si != "T" or si != "P":
-# 	si = input("Use pretrained file, or train new file? (P / T)")
-# 	if si == "F":
-# 		train_from_file = True
-# 		break
-# 	elif si == "T":
-# 		train_from_file = False
-# 		break
-train_from_file = False
+from datasets import load_dataset
+
+use_pretrained_model = False
 local = True    # Code running on a machine with enough diskspace available? requires ~120GB
 max_words = 12  # take "max_words" amount of words and put it in an array as a number pointing to the words index in the "uniquewords" array
 n_steps = 5000
@@ -27,26 +16,21 @@ else:
 	# dataset2 = load_dataset('natural_questions', split='test')
 
 # load data set
-questions, short_answers, long_answer = tf.load_data(dataset, local)
-
-# fix short answer array
-short_answers = tf.convert_array_shortanswers(short_answers)
-
+questions, yes_no_answer, text_tokens, short_answer = tf.load_data(dataset, local)
 
 print("Natural Language Process started ...")
-x_train_temp, all_words = tf.natural_lang_process_all_questions(questions)
+x_train_temp, unique_words = tf.natural_lang_process_all_questions(questions)
 print("Done!")
 
-categories = list(set(short_answers))
+categories = list(set(yes_no_answer))
+
 y_temp = []
-for n in [categories.index(i) for i in short_answers]:
+for n in [categories.index(i) for i in yes_no_answer]:
 		y_temp.append([0 for i in range(len(categories))])
 		y_temp[-1][n] = 1
 
-unique_words = list(set(all_words))
+
 x_temp = []
-
-
 for each in x_train_temp:
 	x_temp.append(tf.make_text_into_numbers(each, max_words, unique_words))
 
@@ -54,13 +38,19 @@ for each in x_train_temp:
 ''' --------------------- TRAIN --------------------- '''
 # True = load trained model from file
 # False = train the model then save as file
-file_name = f"trained_steps_{n_steps}_maxwords_{max_words}_datasize_{len(x_temp)}_V1.pth"
+num_lay = 1
+input_s = 20
+hidden = 16
+out_in = 256
 
-for num_lay in range(1,2):
-	for input_s in range(7,8):
-		for hidden in range(5,6):
-			for out_in in range(111,112):
-				model = tf.training_from_file(use_model=train_from_file, n_steps=n_steps, x_temp=x_temp, y_temp=y_temp, file_name=file_name, len_unique_words=len(unique_words), input_s=input_s, hidden=hidden, out_in=out_in, num_lay=num_lay)
+file_name = "_ins:" + str(input_s) + "_hid:" + str(hidden) + "_out:" + str(out_in) + "_lay:" + \
+            str(num_lay) + f"trained_steps_{n_steps}_maxwords_{max_words}_datasize_{len(x_temp)}_V1.pth"
+
+# for num_lay in range(1,2):
+# 	for input_s in range(7,8):
+# 		for hidden in range(5,6):
+# 			for out_in in range(111,112):
+model = tf.training_from_file(use_pretrained_model=use_pretrained_model, n_steps=n_steps, x_temp=x_temp, y_temp=y_temp, file_name=file_name, len_unique_words=len(unique_words), input_s=input_s, hidden=hidden, out_in=out_in, num_lay=num_lay)
 ''' --------------------- TRAIN ---------------------'''
 
 print("ready")

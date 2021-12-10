@@ -51,19 +51,25 @@ def remove_html(data):
 
 
 def load_data(dataset, local):
-	questions, short_answers, long_answer, label = [], [], [], []
-	for each in dataset:
+	questions, yes_no_answer, short_answers, text_tokens = [], [], [], []
+
+	for count, each in enumerate(dataset):
+		if count == 100:
+			break
 		if local:
 			if ((each[1]) != [-1]):
 				questions.append(each[0])
-				short_answers.append(each[1])
-				long_answer.append(remove_html(each[2]))
+				yes_no_answer.append(each[1])
+				text_tokens.append(remove_html(each[2]))
+
 		else:
-			if ((each["annotations"]["yes_no_answer"]) != [-1]):
-				questions.append(each['question']['tokens'])
-				short_answers.append(each['annotations']['yes_no_answer'])
-				long_answer.append(remove_html(each['document']['tokens']))
-	return questions, short_answers, long_answer
+			# if ((each["annotations"]["yes_no_answer"]) != [-1]):
+			questions.append(each['question']['tokens'])
+			yes_no_answer.append(each['annotations']['yes_no_answer'])
+			text_tokens.append(remove_html(each['document']['tokens']))
+			short_answers.append(each['annotations']['short_answers'][0]['text'][0])
+	yes_no_answer = convert_array_shortanswers(yes_no_answer)
+	return questions, yes_no_answer, text_tokens, short_answers
 
 
 def natural_lang_process_one_question(question):
@@ -83,7 +89,7 @@ def natural_lang_process_all_questions(all_questions):
 		sent = natural_lang_process_one_question(each_question)
 		all_words += sent
 		sentences.append(sent)
-	return sentences, all_words
+	return sentences, list(set(all_words))
 
 
 def make_text_into_numbers(text, max_words, unique_words):
@@ -113,12 +119,12 @@ class Net(nn.Module):
 			self.fc2 = nn.Linear(out_in, 2).cuda()
 			self.sigmoid = nn.Sigmoid().cuda()
 		else:
-			self.embedding = nn.Embedding(len_unique_words, 20)
-			self.lstm = nn.LSTM(input_size=20, hidden_size=16, num_layers=1,
+			self.embedding = nn.Embedding(len_unique_words, input_s)
+			self.lstm = nn.LSTM(input_size=input_s, hidden_size=hidden, num_layers=num_lay,
 			                    batch_first=True, bidirectional=False)
 
-			self.fc1 = nn.Linear(16, 256)
-			self.fc2 = nn.Linear(256, 2)
+			self.fc1 = nn.Linear(hidden, out_in)
+			self.fc2 = nn.Linear(out_in, 2)
 			self.sigmoid = nn.Sigmoid()
 
 	def forward(self, x):
@@ -157,7 +163,12 @@ def test_fone(label, pred):
 			FP += 1
 
 	print("Accuracy:", (TP + TN) / (TP + TN + FP + FN))
-	print("Recall", TP / (TP + FN))
+	try:
+		recall = TP / (TP + FN)
+	except:
+		recall = TP / (TP + FN + 0.00001)
+
+	print("Recall", recall)
 	print("Precision", TP / (TP + FP))
 	print("F1", (2 * TP) / (2 * TP + FP + FN))
 
@@ -236,27 +247,25 @@ def avg(l):
 	return sum(l) / len(l)
 
 
-def training_from_file(use_model, n_steps, x_temp, y_temp, file_name, len_unique_words, input_s, hidden, out_in,
-                       num_lay):
-	if use_model:
+def training_from_file(use_pretrained_model, n_steps, x_temp, y_temp, file_name, len_unique_words, input_s, hidden, out_in,
+						num_lay):
+	if use_pretrained_model:
 		torch.load(x_temp, "x_temp_tensor_" + file_name)
-		torch.load(x_temp, "y_temp_tensor_" + file_name)
+		torch.load(y_temp, "y_temp_tensor_" + file_name)
 	else:
 		torch.save(x_temp, "x_temp_tensor_" + file_name)
-		torch.save(x_temp, "y_temp_tensor_" + file_name)
+		torch.save(y_temp, "y_temp_tensor_" + file_name)
 
 	x_train, x_test, y_train, y_test = train_test_split(x_temp, y_temp, test_size=0.2, random_state=42, shuffle=True)
-
 	x_train, y_train, x_test, y_test = using_cuda(x_train, y_train, x_test, y_test)
 
 	model = Net(len_unique_words, input_s, hidden, out_in, num_lay)
-
 	optimizer = optim.Adam(model.parameters(), lr=0.001)
-	# criterion = nn.CrossEntropyLoss()
 	loss_fn = torch.nn.MSELoss()
+	# criterion = nn.CrossEntropyLoss()
 
-	if use_model:
-		model.load_state_dict(torch.load(file_name, map_location='cpu'))
+	if use_pretrained_model:
+		model.load_state_dict(torch.load("models/" + file_name, map_location='cpu'))
 		print("Trained model loaded from file, using the file: ", file_name)
 	else:
 		train_loss, test_loss = [], []
@@ -287,10 +296,8 @@ def training_from_file(use_model, n_steps, x_temp, y_temp, file_name, len_unique
 			train_acc.append(acc_train)
 			test_acc.append(acc_test)
 
-		#		printer(train_loss, train_acc, validate_loss, validate_acc)
-		max_value = avg(test_acc)
-		torch.save(model.state_dict(), "mod_acc/" + str(round(max_value, 5)) + "_ins:" + str(input_s) + "_hid:" + str(
-			hidden) + "_out:" + str(out_in) + "_lay:" + str(num_lay) + file_name)
+		printer(train_loss, train_acc, test_loss, test_acc)
+		torch.save(model.state_dict(), "models/" + file_name)
 		print("Model training complete!")
 	return model
 
@@ -301,6 +308,7 @@ def training_from_file(use_model, n_steps, x_temp, y_temp, file_name, len_unique
 #     save_data.append(data["question"]["tokens"])
 #     save_data.append(data["annotations"]["yes_no_answer"])
 #     save_data.append(data["document"]["tokens"])
+#	  save_data.append(data['annotations']['short_answers'][0]['text'][0])
 #     return save_data
 #
 # def json_write(data):
