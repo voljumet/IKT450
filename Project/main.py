@@ -6,7 +6,7 @@ from datasets import load_dataset
 use_pretrained_model = False
 local = True    # Code running on a machine with enough diskspace available? requires ~120GB
 max_words = 12  # take "max_words" amount of words and put it in an array as a number pointing to the words index in the "uniquewords" array
-n_steps = 5000
+n_steps = 1000
 
 
 if local:

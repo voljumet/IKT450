@@ -120,7 +120,7 @@ class Net(nn.Module):
 			self.sigmoid = nn.Sigmoid().cuda()
 		else:
 			self.embedding = nn.Embedding(len_unique_words, input_s)
-			self.lstm = nn.LSTM(input_size=input_s, hidden_size=hidden, num_layers=num_lay,
+			self.lstm = nn.RNN(input_size=input_s, hidden_size=hidden, num_layers=num_lay,
 			                    batch_first=True, bidirectional=False)
 
 			self.fc1 = nn.Linear(hidden, out_in)
@@ -196,27 +196,27 @@ def classify(model, indices):
 	return aindex
 
 
-def printer(t_loss, t_acc, v_loss, v_acc):
+def printer(train_loss, train_acc, test_loss, test_acc):
 	# Plot training & validation accuracy values
-	fig = plt.figure(figsize=(10, 5))
-	plt.plot(t_loss)
-	plt.plot(v_loss)
+	fig = plt.figure(figsize=(5, 5))
+	plt.plot(train_loss)
+	plt.plot(test_loss)
 	title1 = 'Model loss' + '(' + str(datetime.datetime.today()) + ')'
 	plt.title(title1)
 	plt.ylabel('Loss')
 	plt.xlabel('Epoch')
-	plt.legend(['Test', 'Train'], loc='upper left')
+	plt.legend(['Train', 'Test'], loc='upper left')
 	fig.savefig("gr_loss/"+ title1 + '.jpg', bbox_inches='tight', dpi=150)
 	plt.show()
 
-	fig = plt.figure(figsize=(10, 5))
-	plt.plot(t_acc)
-	plt.plot(v_acc)
+	fig = plt.figure(figsize=(5, 5))
+	plt.plot(train_acc)
+	plt.plot(test_acc)
 	title2 = 'Model accuracy' + '(' + str(datetime.datetime.today()) + ')'
 	plt.title(title2)
 	plt.ylabel('Accuracy')
 	plt.xlabel('Epoch')
-	plt.legend(['Test', 'Train'], loc='upper left')
+	plt.legend(['Train', 'Test'], loc='upper left')
 	fig.savefig("gr_acc/"+ title2 + '.jpg', bbox_inches='tight', dpi=150)
 	plt.show()
 
@@ -272,6 +272,7 @@ def training_from_file(use_pretrained_model, n_steps, x_temp, y_temp, file_name,
 		train_acc, test_acc = [], []
 
 		for i in range(n_steps):
+			# train loss
 			y_pred_train = model(x_train)
 			loss_train = loss_fn(y_pred_train, y_train)
 
@@ -279,23 +280,28 @@ def training_from_file(use_pretrained_model, n_steps, x_temp, y_temp, file_name,
 			loss_train.backward()
 			optimizer.step()
 
+			# test loss
 			y_pred_test = model(x_test)
 			loss_test = loss_fn(y_pred_test, y_test)
 
+			# append train and test loss
 			train_loss.append(loss_train.item())
 			test_loss.append(loss_test.item())
 
-			acc_test = test_accuracy(convert_tensor_to_list(y_pred_test), convert_tensor_to_list(y_test))
+			# compare train accuracy, compare test accuracy
 			acc_train = test_accuracy(convert_tensor_to_list(y_pred_train), convert_tensor_to_list(y_train))
+			acc_test = test_accuracy(convert_tensor_to_list(y_pred_test), convert_tensor_to_list(y_test))
+
+			# append train loss, compare test loss
+			train_acc.append(acc_train)
+			test_acc.append(acc_test)
 
 			if (i % 25 == 0):
 				test_fone(convert_tensor_to_list(y_pred_test), convert_tensor_to_list(y_test))
 				print(i, "acc test:", round(acc_test, 4), "acc train:", round(acc_train, 4),
 				      "loss test:", round(loss_train.item(), 4), "loss train:", round(loss_test.item(), 4))
 
-			train_acc.append(acc_train)
-			test_acc.append(acc_test)
-
+		# print loss and accuracy as graphs
 		printer(train_loss, train_acc, test_loss, test_acc)
 		torch.save(model.state_dict(), "models/" + file_name)
 		print("Model training complete!")
