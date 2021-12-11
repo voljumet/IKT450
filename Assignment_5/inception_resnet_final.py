@@ -13,8 +13,8 @@ class NaiveResnet(nn.Module):
         super(NaiveResnet, self).__init__()
 
         self.tower_one   = nn.Conv2d(C_in, 3, (1, 1))
-        self.tower_two   = nn.Conv2d(3, 3, (3, 3), padding=1)
-        self.tower_three = nn.Conv2d(3, 3, (5, 5), padding=2)
+        self.tower_two   = nn.Conv2d(3, 3, (3, 3), padding=1) # padding is to keep the dim big enough
+        self.tower_three = nn.Conv2d(3, 3, (5, 5), padding=2) # the padding is larger because the    is also larger
 
     def forward(self, x):
         stream = self.tower_one(x).clamp(min=0)
@@ -104,7 +104,7 @@ def train(model, device, train_loader, optimizer, epoch):
         loss.backward()
         optimizer.step()
         
-        if batch_idx % 100 == 0:
+        if batch_idx % 1000 == 0:
             print('Train Epoch: {} ({:.0f}%)\tLoss: {:.6f}'.format(
                 epoch, 100. * batch_idx / len(train_loader), loss.item()))
 
@@ -147,7 +147,7 @@ def main():
             'pin_memory': True,
             'shuffle': True
         })
-
+	# To transform the images of any type to tensor
     data_transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
