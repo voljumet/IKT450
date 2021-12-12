@@ -250,11 +250,11 @@ def avg(l):
 def training_from_file(use_pretrained_model, n_steps, x_temp, y_temp, file_name, len_unique_words, input_s, hidden, out_in,
 						num_lay):
 	if use_pretrained_model:
-		torch.load(x_temp, "x_temp_tensor_" + file_name)
-		torch.load(y_temp, "y_temp_tensor_" + file_name)
+		torch.load(x_temp, "X_Y_Tensor/x_temp_tensor_" + file_name)
+		torch.load(y_temp, "X_Y_Tensor/y_temp_tensor_" + file_name)
 	else:
-		torch.save(x_temp, "x_temp_tensor_" + file_name)
-		torch.save(y_temp, "y_temp_tensor_" + file_name)
+		torch.save(x_temp, "X_Y_Tensor/x_temp_tensor_" + file_name)
+		torch.save(y_temp, "X_Y_Tensor/y_temp_tensor_" + file_name)
 
 	x_train, x_test, y_train, y_test = train_test_split(x_temp, y_temp, test_size=0.2, random_state=42, shuffle=True)
 	x_train, y_train, x_test, y_test = using_cuda(x_train, y_train, x_test, y_test)

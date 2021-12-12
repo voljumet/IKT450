@@ -14,13 +14,10 @@ def stopwatch(ok):
 
 
 def test(x_test, y_test, max_words, unique_words):
-	
 	inverted_y_set = tf.convert_array_shortanswers(y_test)      #this list will be inverted !!!!!!!!!!!
-
 	result = []
 	for each_question in x_test:
 		result.append(classify(each_question, max_words, unique_words))
-
 	counter = 0
 	for k in range(len(x_test)):
 		if result[k] != inverted_y_set[k]:
@@ -29,17 +26,15 @@ def test(x_test, y_test, max_words, unique_words):
 	print(" Testing - Accuracy:", counter/len(y_test))
 
 
-def classify(model, question, max_words, unique_words):
-	indices = tf.make_text_into_numbers(question, max_words, unique_words)
-
+def classify(model ,line, max_words, unique_words):
+	indices = tf.make_text_into_numbers(line, max_words, unique_words)
 	if torch.cuda.is_available():
 		tensor = torch.LongTensor([indices]).cuda()
 	else:
 		tensor = torch.LongTensor([indices])
-
-	y_pred = model(tensor).cpu().detach().numpy()
-	answer = np.argmax(y_pred)
-	return answer
+	output = model(tensor).cpu().detach().numpy()
+	aindex = np.argmax(output)
+	return aindex
 
 
 def getRandomTextFromIndex(aIndex, y_train, x_train):
